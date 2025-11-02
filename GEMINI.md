@@ -16,6 +16,13 @@
 
 ### 第二部分：协作流程和规范
 
+- **如何从中断点继续工作**
+    1. 首先，阅读 GEMINI.md（本文档）以了解项目的整体设计和协作流程。
+    2. 阅读 docs/TODO.md（如果存在）以了解当前的待办任务和优先级。
+    3. 查看整体设计文档 docs/design-overall.md 以了解整体情况。
+    4. 然后，查看本地尚未 stash 的更改、未提交的更改，或未推送的更改。以了解当前的工作状态。
+    5. 结合上述信息，分析并和用户确认当前的优先任务是什么。
+
 - **测试流程**:
     - 项目采用 `bun test` 作为统一的测试执行器。测试代码主要由位于 `src/test/e2e/` 目录下的端到端测试构成。
     - **规范**: 所有新功能或 Bug 修复都应伴随相应的自动化测试。测试文件应以 `.test.ts` 或 `.spec.ts` 结尾。
@@ -64,11 +71,8 @@
 
 - **分支与提交规范**:
     - **分支**:
-        - `main`: 主分支，始终保持稳定和可发布状态。
-        - `develop`: 开发主分支，集成所有已完成的功能。
-        - `feature/<name>`: 功能开发分支，从 `develop` 创建。
-        - `fix/<name>`: Bug 修复分支，从 `develop` 或 `main` 创建。
-    - **提交**: 遵循 [Conventional Commits](https://www.conventionalcommits.org/) 规范，例如 `feat: Add subgraph reading feature` 或 `fix: Correct entity merging logic`。
+            - `master`: 主分支，始终保持稳定和可发布状态。
+            - `develop`: 开发主分支，集成所有已完成的功能。    - **提交**: 遵循 [Conventional Commits](https://www.conventionalcommits.org/) 规范，例如 `feat: Add subgraph reading feature` 或 `fix: Correct entity merging logic`。
 
 ---
 
@@ -90,20 +94,24 @@
     - **构建工具**: Bun
     - **语言**: TypeScript
     - **核心框架**: `@modelcontextprotocol/sdk` 用于实现 MCP 服务。
-    - **数据处理**: `yaml` 用于序列化/反序列化知识图谱，`zod` 和 `zod-to-json-schema` 用于工具的输入验证和模式生成。
+    - **数据处理**: `zod` 和 `zod-to-json-schema` 用于工具的输入验证和模式生成。
     - **架构**:
         - 一个通过标准输入/输出（Stdio）与 LLM 客户端通信的命令行服务。
-        - 核心是 `GraphManager` 类，它封装了所有对知识图谱文件的读写和逻辑操作。
-        - `tool-def.ts` 文件定义了所有可供 LLM 调用的工具及其输入/输出模式。
+        - v2 架构的核心是 `src/v2/` 目录，它包含了所有核心逻辑。
+        - `src/v2/runtime.ts` 负责运行时的组件。
+        - `src/v2/editor/` 目录包含用于文件编辑操作的模块。
+        - `src/v2/retrieval/` 目录包含用于检索的模块。
+        - `src/v2/tools/` 目录定义了所有可供 LLM 调用的工具。
 
 - **项目结构**:
     - `src/index.ts`: 应用主入口，负责服务启动和配置。
-    - `src/create-server.ts`: 创建和配置 MCP 服务器实例。
-    - `src/graph-manager.ts`: 核心业务逻辑，管理知识图谱的增删改查。
-    - `src/tool-def.ts`: 定义所有 LLM 可用的工具及其 schema。
-    - `src/typings.ts`: 定义核心数据类型（如 `Entity`, `Relation`）。
+    - `src/v2/index.ts`: v2 服务的主入口。
+    - `src/v2/runtime.ts`: v2 的运行时组件。
+    - `src/v2/editor/`: 包含文件编辑操作的模块，如 `editing.ts`, `file-ops.ts`, `front-matter.ts`, `lines.ts`, `text.ts`, `toc.ts`。
+    - `src/v2/retrieval/`: 包含检索相关的模块。
+    - `src/v2/tools/`: 定义了所有 LLM 可用的工具，如 `backup.ts`, `entity.ts`, `manual.ts`, `relation.ts`, `retrieval.ts`。
+    - `src/typings.ts`: 定义核心数据类型。
     - `src/utils.ts`: 通用辅助函数。
-    - `$HOME/mcp-server-memories-off.yaml`: 默认的知识图谱存储文件。
     - **知识库目录结构**:
       ```
       library 目录
@@ -118,20 +126,8 @@
 ### 第四部分：项目详细设计
 
 - **工具集设计**:
-    - 项目的核心功能通过一套工具集暴露给 LLM。每个工具的详细设计（包括其功能描述、输入参数和数据结构）均在 `src/tool-def.ts` 文件中通过 `zod` schema 和 `description` 字段进行了精确定义。
+    - 项目的核心功能通过一套工具集暴露给 LLM。每个工具的详细设计（包括其功能描述、输入参数和数据结构）均在 `src/v2/tools/` 目录下的各个文件中通过 `zod` schema 和 `description` 字段进行了精确定义。
     - 这些定义是“活文档”，直接驱动着工具的输入验证和 MCP 的工具列表功能，因此是理解各功能细节的最佳参考。
 
 - **知识图谱设计**:
-    - **实体 (Entity)**: 包含 `name`, `entityType`, `observations`。是知识的基本单元。实体文件将存储在 `library/entities/` 目录下。
-    - **关系 (Relation)**: 包含 `from`, `to`, `relationType`。用于连接两个实体。关系将作为实体文件中的元数据或通过特定文件进行管理。
-    - **使用说明 (Manual)**: 包含 `name`, `description`, `targets`。用于存储图谱的元信息或使用指南。`meta.md` 文件将用于存储这些信息。
-    - 存储格式将基于文件目录结构，而非单一的 YAML 数组。
-
----
-
-### 第五部分：当前重大任务
-
-- **任务**: Shell-Native 架构重构
-- **状态**: <span style="color:orange;">进行中</span>
-- **目标**: 按照 `docs/refactored-design.md` 的蓝图，将项目重构为基于文件目录的存储和基于 Shell 命令的交互方式。
-- **进度记录**: 所有完成的重构步骤将被记录在 `docs/refactored-log.md` 文件中。
+    - 详细设计请参考 `docs/design-overall.md`。
