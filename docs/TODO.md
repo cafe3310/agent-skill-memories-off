@@ -28,8 +28,9 @@
 
 #### 进行中
 
+#### 进行中
+
 #### 待办
-- [ ] 2025-11-03-21-17-实现listEntityTypes.md
 - [ ] 2025-11-03-21-17-实现findEntitysByRelation.md
 - [ ] 2025-11-03-21-17-实现getEntity.md
 - [ ] 2025-11-03-21-17-实现listRecentEntities.md
@@ -37,6 +38,7 @@
 - [ ] 2025-11-03-23-59-findEntitiesByMetadata 暂时不支持 relationAs, 因为我们还没实现这个机制。
 
 #### 已完成
+- [x] 2025-11-03-21-17-实现listEntityTypes.md
 - [x] 2025-11-03-21-17-增强find_entities_by_metadata.md
 - [x] 2025-11-03-21-17-实现search_in_contents.md
 - [x] 2025-11-03-21-19-确保所有测试通过.md

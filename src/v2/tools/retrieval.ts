@@ -1,6 +1,6 @@
 import {z} from 'zod';
 import {zodToJsonSchema} from 'zod-to-json-schema';
-import {findEntitiesByMetadataQuery, findEntityByNonFrontMatterRegex} from "../retrieval/retrieval.ts";
+import {findEntitiesByMetadataQuery, findEntityByFrontMatterRegex, findEntityByNonFrontMatterRegex, listAllEntityTypesWithCounts} from "../retrieval/retrieval.ts";
 import {FileType, FrontMatterPresetKeys, type McpHandlerDefinition} from "../../typings.ts";
 import {globToRegex} from "../../utils.ts";
 import {splitFileIntoSections} from "../editor/editing.ts";
@@ -36,6 +36,31 @@ export const FindEntitiesByMetadataInput = z.object({
  * - `metadataQuery` 中的值支持 glob 模式匹配。
  * - 输出中的 `matchingValue` 仅列出符合条件的 frontMatter 值，不列出其他的 frontMatter 值。
  */
+export const ListEntityTypesInput = z.object({
+  libraryName: z.string().describe('知识库名称'),
+  reason: z.string().optional().describe('该调用的简要目的'),
+});
+
+export const listEntityTypesTool: McpHandlerDefinition<typeof ListEntityTypesInput, 'listEntityTypes'> = {
+  toolType: {
+    name: 'listEntityTypes',
+    description: '列出知识库中所有唯一的实体类型。',
+    inputSchema: zodToJsonSchema(ListEntityTypesInput),
+  },
+  handler: (args: unknown, name) => {
+    const { libraryName, reason } = ListEntityTypesInput.parse(args);
+    const entityTypesWithCounts = listAllEntityTypesWithCounts(libraryName);
+
+    let output = `<${name} reason=${normalizeReason(reason)} TYPES AND NUMBER OF ENTITIES>\n`;
+    for (const { type, count } of entityTypesWithCounts) {
+      output += `- ${type} (${count})\n`;
+    }
+    output += `</${name}>`;
+
+    return output;
+  }
+};
+
 export const findEntitiesByMetadataTool: McpHandlerDefinition<typeof FindEntitiesByMetadataInput, 'findEntitiesByMetadata'> = {
   toolType: {
     name: 'findEntitiesByMetadata',
@@ -95,10 +120,8 @@ z.object({
  * - `relationType`: (string, optional) 关系类型（例如，“is-a”，“part-of”）。
  *
  * @output
- * - (string) 目前返回一个占位符消息，指示该工具尚未完全实现。
- *
- * @remarks
- * - 该工具目前尚未完全实现，调用将返回错误信息。
+ * - (string) 返回一个 XML 格式的报告，其中包含所有唯一的实体类型及其对应的实体数量，按数量降序排列。
+ *   示例: `<listEntityTypes reason= TYPES AND NUMBER OF ENTITIES>\n- Person (5)\n- Organization (3)\n</listEntityTypes>`
  * - 预期功能是遍历所有实体，解析其 Front Matter 中的关系，并根据 `toEntity` 和 `relationType` 进行过滤。
  *
  * @todo
@@ -227,4 +250,4 @@ export const searchAnywhereTool: McpHandlerDefinition<typeof SearchAnywhereInput
 };
 
 // Export all tools as an array, similar to entity.ts
-export const retrievalTools = [findEntitiesByMetadataTool, findRelationsTool, searchInContentsTool, searchAnywhereTool];
+export const retrievalTools = [listEntityTypesTool, findEntitiesByMetadataTool, findRelationsTool, searchInContentsTool, searchAnywhereTool];

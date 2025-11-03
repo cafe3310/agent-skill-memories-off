@@ -79,4 +79,31 @@ describe('E2E Retrieval Tools', () => {
     // 5. Verify the entity is not found
     expect(responseNotExists).not.toContain('- metadata-test-entity');
   }, 10000);
+
+  test('should list entity types with counts, sorted by count', async () => {
+    // 1. Create multiple entities with different entity types
+    await callMcp(serverProcess, 'tools/call', {
+      name: 'addEntities',
+      arguments: { libraryName: 'test-library', entity: { name: 'Person1', content: '---\nentity type: Person\n---' } },
+    });
+    await callMcp(serverProcess, 'tools/call', {
+      name: 'addEntities',
+      arguments: { libraryName: 'test-library', entity: { name: 'Person2', content: '---\nentity type: Person\n---' } },
+    });
+    await callMcp(serverProcess, 'tools/call', {
+      name: 'addEntities',
+      arguments: { libraryName: 'test-library', entity: { name: 'Organization1', content: '---\nentity type: Organization\n---' } },
+    });
+
+    // 2. Call listEntityTypes
+    const response = await callMcp(serverProcess, 'tools/call', {
+      name: 'listEntityTypes',
+      arguments: { libraryName: 'test-library' },
+    });
+
+    // 3. Assert that the tool returns the correct entity types and their counts, sorted correctly
+    expect(response).toContain('- Person (2)');
+    expect(response).toContain('- Organization (1)');
+    expect(response).toContain('- Test (1)');
+  }, 10000);
 });

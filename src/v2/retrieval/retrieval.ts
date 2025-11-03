@@ -13,6 +13,30 @@ import {readFileLines} from "../editor/file-ops.ts";
 import {readFrontMatterLines, locateFrontMatter} from "../editor/front-matter.ts";
 import {globToRegex} from "../../utils.ts";
 
+import {FrontMatterPresetKeys, type ThingName} from "../../typings.ts";
+
+export function listAllEntityTypesWithCounts(libraryName: LibraryName): { type: string, count: number }[] {
+  const entityDirPath = getEntityDirPath(libraryName);
+  const files = shell.ls(path.join(entityDirPath, '*.md'));
+  const entityTypeCounts: Record<string, number> = {};
+
+  for (const filePath of files) {
+    const thingName = getThingNameFromPath(filePath, FileType.FileTypeEntity);
+    const frontMatter = readFrontMatterLines(libraryName, FileType.FileTypeEntity, thingName);
+    if (!frontMatter) continue;
+
+    const entityTypeLine = frontMatter.find(line => line.startsWith(`${FrontMatterPresetKeys.EntityType}:`));
+    if (entityTypeLine) {
+      const entityType = entityTypeLine.substring(FrontMatterPresetKeys.EntityType.length + 1).trim();
+      entityTypeCounts[entityType] = (entityTypeCounts[entityType] || 0) + 1;
+    }
+  }
+
+  return Object.entries(entityTypeCounts)
+    .map(([type, count]) => ({ type, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
 export function findEntitiesByMetadataQuery(libraryName: LibraryName, metadataQuery: Record<string, string | boolean>): Record<ThingName, FrontMatterLine[]> {
   const entityDirPath = getEntityDirPath(libraryName);
   const files = shell.ls(path.join(entityDirPath, '*.md'));
