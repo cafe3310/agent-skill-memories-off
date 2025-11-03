@@ -129,9 +129,9 @@ describe('E2E Entity Tools', () => {
     });
 
     // 3. Verify the combined content
-    expect(response).toContain('--- to-be-read-1 ---');
+    expect(response).toContain('<entity name="to-be-read-1">');
     expect(response).toContain('Content of read 1');
-    expect(response).toContain('--- to-be-read-2 ---');
+    expect(response).toContain('<entity name="to-be-read-2">');
     expect(response).toContain('Content of read 2');
   }, 10000);
 
@@ -236,7 +236,7 @@ describe('E2E Entity Tools', () => {
       { name: targetEntityName, content: 'Initial content.' },
       {
         name: linkingEntityName,
-        content: `---\nrelation knows: ${targetEntityName}
+        content: `---\nrelation to: ${targetEntityName}
 ---\nThis entity links to the target.`,
       },
     ];
@@ -266,7 +266,7 @@ describe('E2E Entity Tools', () => {
     // 5. Verify the linking entity was updated
     const linkingEntityPath = path.join(tempLibraryPath, 'entities', `${linkingEntityName}.md`);
     const linkingEntityContent = fs.readFileSync(linkingEntityPath, 'utf-8');
-    expect(linkingEntityContent).toContain(`relation knows: ${newTargetName}`);
+    expect(linkingEntityContent).toContain(`relation to: ${newTargetName}`);
     expect(linkingEntityContent).not.toContain(`relation knows: ${targetEntityName}`);
   }, 10000);
 

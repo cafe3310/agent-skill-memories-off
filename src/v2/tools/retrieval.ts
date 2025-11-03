@@ -1,7 +1,10 @@
 import {z} from 'zod';
 import {zodToJsonSchema} from 'zod-to-json-schema';
-import {findEntityByFrontMatterRegex} from "../retrieval/retrieval.ts";
-import type {McpHandlerDefinition} from "../../typings.ts";
+import {findEntityByFrontMatterRegex, findEntityByNonFrontMatterRegex} from "../retrieval/retrieval.ts";
+import {FileType, type McpHandlerDefinition} from "../../typings.ts";
+import {globToRegex} from "../../utils.ts";
+import {splitFileIntoSections} from "../editor/editing.ts";
+import {normalizeReason} from "../editor/text.ts";
 
 // --- Tool: find_entities_by_metadata ---
 
@@ -52,6 +55,13 @@ export const FindRelationsInput = z.object({
   relationType: z.string().optional().describe('The type of the relation (e.g., "is-a", "part-of").'),
 });
 
+
+
+export const SearchAnywhereInput = z.object({
+  libraryName: z.string().describe('The name of the library to search in.'),
+  pattern: z.string().describe('The glob pattern to search for anywhere.'),
+});
+
 // Relation schema for internal use, not directly for tool output schema
 z.object({
   from: z.string().describe('The entity where the relation is defined.'),
@@ -96,44 +106,81 @@ export const findRelationsTool: McpHandlerDefinition<typeof FindRelationsInput, 
   }
 };
 
-
-// Export all tools as an array, similar to entity.ts
-export const retrievalTools = [findEntitiesByMetadataTool, findRelationsTool, searchInContentsTool, searchAnywhereTool];
-
 // --- Tool: search_in_contents ---
 
+export const SearchInContentsInput = z.object({
+  libraryName: z.string().describe('知识库名称'),
+  contentGlob: z.string().describe('用于在实体正文中搜索的 glob 模式'),
+  reason: z.string().optional().describe('该调用的简要目的'),
+});
+
 /**
- * @tool search_in_contents
- * @description 在实体正文中进行 glob 模式匹配。
+ * @tool searchInContents
+ * @description 在实体正文中进行 glob 模式匹配，并返回匹配的行及其所在的章节标题。
  *
  * @input
- * - `libraryName`: (string, required) 要搜索的知识库的名称。
- * - `contentPattern`: (string, required) 用于在实体正文中搜索的 glob 模式。
+ * - `libraryName`: (string, required) 知识库名称。
+ * - `contentGlob`: (string, required) 用于在实体正文中搜索的 glob 模式。
+ * - `reason`: (string, optional) 该调用的简要目的。
  *
  * @output
- * - (string) 目前返回一个占位符消息，指示该工具尚未实现。
+ * - (string) 返回一个 XML 格式的报告，其中包含两部分：
+ *   1. `<searchInContents-format-example>`: 展示了输出格式的样例。
+ *   2. `<searchInContents RESULT>`: 包含实际的搜索结果。每个匹配的实体都有一个 `===$entityName===` 和 `===$entityName MATCHES END===` 块，其中包含匹配的行及其章节标题。
  *
  * @remarks
- * - 该工具目前尚未实现，调用将返回错误信息。
- *
- * @todo
- * - [ ] 实现该工具的完整逻辑。
+ * - Glob 模式匹配是大小写不敏感的。
+ * - 如果一个匹配行属于某个章节，其章节标题会以 `##` 的形式显示在匹配行的上方。
+ * - 如果实体没有章节，则只显示匹配行。
  */
-export const searchInContentsTool = {
+export const searchInContentsTool: McpHandlerDefinition<typeof SearchInContentsInput, 'searchInContents'> = {
   toolType: {
-    name: 'search_in_contents',
+    name: 'searchInContents',
     description: '在实体正文中进行 glob 模式匹配。',
-    inputSchema: zodToJsonSchema(z.object({
-      libraryName: z.string().describe('The name of the library to search in.'),
-      contentPattern: z.string().describe('The glob pattern to search for in the entity content.'),
-    })),
+    inputSchema: zodToJsonSchema(SearchInContentsInput),
   },
-  handler: (args: unknown) => {
-    return `---status: failed, message: search_in_contents tool is not yet implemented.---`;
+  handler: (args: unknown, name) => {
+    const { libraryName, contentGlob, reason } = SearchInContentsInput.parse(args);
+    const regexPattern = globToRegex(contentGlob);
+    const results = findEntityByNonFrontMatterRegex(libraryName, '*.md', regexPattern);
+
+    const resultsByEntity: Record<string, { line: string, toc: string }[]> = {};
+    for (const result of results) {
+      if (!resultsByEntity[result.name]) {
+        resultsByEntity[result.name] = [];
+      }
+      const sections = splitFileIntoSections(libraryName, FileType.FileTypeEntity, result.name);
+      let toc = '';
+      for (const section of sections) {
+        if (section.content.includes(result.line)) {
+          toc = section.tocItem.tocLineContent;
+          break;
+        }
+      }
+      resultsByEntity[result.name].push({ line: result.line, toc });
+    }
+
+    let output = `<${name}-format-example>\n===$entityName===\n## $tocOfMatchedLines\n$matchedLines\n## $tocOfMatchedLines\n$matchedLines\n===$entityName MATCHES END===\n</${name}-format-example>\n`;
+    output += `<${name} reason=${normalizeReason(reason)} RESULT>\n`;
+
+    for (const entityName in resultsByEntity) {
+      output += `===${entityName}===\n`;
+      for (const match of resultsByEntity[entityName]) {
+        if (match.toc) {
+          const headingText = match.toc.replace(/^#+\s*/, '');
+          output += `## ${headingText}\n`;
+        }
+        output += `${match.line}\n`;
+      }
+      output += `===${entityName} MATCHES END===\n`;
+    }
+    output += `</${name}>`;
+
+    return output;
   }
 };
 
-// --- Tool: search_anywhere ---
+
 
 /**
  * @tool search_anywhere
@@ -152,17 +199,16 @@ export const searchInContentsTool = {
  * @todo
  * - [ ] 实现该工具的完整逻辑。
  */
-export const searchAnywhereTool = {
+export const searchAnywhereTool: McpHandlerDefinition<typeof SearchAnywhereInput, 'search_anywhere'> = {
   toolType: {
     name: 'search_anywhere',
     description: '在文件名、元数据和正文中进行全局 glob 模式匹配。',
-    inputSchema: zodToJsonSchema(z.object({
-      libraryName: z.string().describe('The name of the library to search in.'),
-      pattern: z.string().describe('The glob pattern to search for anywhere.'),
-    })),
+    inputSchema: zodToJsonSchema(SearchAnywhereInput),
   },
   handler: (args: unknown) => {
     return `---status: failed, message: search_anywhere tool is not yet implemented.---`;
   }
 };
 
+// Export all tools as an array, similar to entity.ts
+export const retrievalTools = [findEntitiesByMetadataTool, findRelationsTool, searchInContentsTool, searchAnywhereTool];

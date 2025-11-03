@@ -56,3 +56,12 @@ export function getEnvVar(key: string, def: string): string {
   logfile('utils', `Env ${key}: ${val}`);
   return val;
 }
+
+export function globToRegex(globPattern: string): string {
+  // Escape special regex characters
+  let regex = globPattern.replace(/[.+^${}()|[\\]/g, '\\$&');
+  // Replace glob wildcards with regex equivalents
+  regex = regex.replace(/\*/g, '.*'); // * matches any sequence of characters
+  regex = regex.replace(/\?/g, '.');  // ? matches any single character
+  return regex;
+}

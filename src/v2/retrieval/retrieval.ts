@@ -31,7 +31,7 @@ export function findEntityByNonFrontMatterRegex(libraryName: LibraryName, fileGl
   const results: {name: ThingName, line: ContentExactLine}[] = [];
   for (const filePath of matchedFiles) {
     const thingName = getThingNameFromPath(filePath, FileType.FileTypeEntity);
-    const fileLines = readFileLines(filePath, FileType.FileTypeEntity, thingName);
+    const fileLines = readFileLines(libraryName, FileType.FileTypeEntity, thingName);
     const frontMatter: { startLineNumber: LineNumber; endLineNumber: LineNumber } | null = locateFrontMatter(fileLines);
     let contentLines: string[];
     if (frontMatter) {
