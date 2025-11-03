@@ -9,8 +9,58 @@ import {
   type ThingName
 } from "../../typings.ts";
 import {getEntityDirPath, getThingNameFromPath} from "../runtime.ts";
-import {locateFrontMatter} from "../editor/front-matter.ts";
 import {readFileLines} from "../editor/file-ops.ts";
+import {readFrontMatterLines, locateFrontMatter} from "../editor/front-matter.ts";
+import {globToRegex} from "../../utils.ts";
+
+export function findEntitiesByMetadataQuery(libraryName: LibraryName, metadataQuery: Record<string, string | boolean>): Record<ThingName, FrontMatterLine[]> {
+  const entityDirPath = getEntityDirPath(libraryName);
+  const files = shell.ls(path.join(entityDirPath, '*.md'));
+  const matchingEntities: Record<ThingName, FrontMatterLine[]> = {};
+
+  for (const filePath of files) {
+    const thingName = getThingNameFromPath(filePath, FileType.FileTypeEntity);
+    const frontMatter = readFrontMatterLines(libraryName, FileType.FileTypeEntity, thingName);
+    if (!frontMatter) continue;
+
+    const matchedLines: FrontMatterLine[] = [];
+    let isMatch = true;
+    for (const key in metadataQuery) {
+      const queryValue = metadataQuery[key];
+      const frontMatterLine = frontMatter.find(line => line.startsWith(`${key}:`));
+
+      if (!frontMatterLine) {
+        isMatch = false;
+        break;
+      }
+
+      const value = frontMatterLine.substring(key.length + 1).trim();
+      if (typeof queryValue === 'string') {
+        const regex = new RegExp(globToRegex(queryValue));
+        if (regex.test(value)) {
+          matchedLines.push(frontMatterLine as FrontMatterLine);
+        } else {
+          isMatch = false;
+          break;
+        }
+      } else if (typeof queryValue === 'boolean') {
+        if (value.toLowerCase() === queryValue.toString()) {
+          matchedLines.push(frontMatterLine as FrontMatterLine);
+        } else {
+          isMatch = false;
+          break;
+        }
+      }
+    }
+
+    if (isMatch && matchedLines.length > 0) {
+      matchingEntities[thingName] = matchedLines;
+    }
+  }
+
+  return matchingEntities;
+}
+
 
 export function findEntityByNameGlob(libraryName: LibraryName, globPattern: string): ThingName[] {
   const entityDirPath = getEntityDirPath(libraryName);

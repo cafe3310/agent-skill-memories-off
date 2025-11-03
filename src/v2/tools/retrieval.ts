@@ -1,7 +1,7 @@
 import {z} from 'zod';
 import {zodToJsonSchema} from 'zod-to-json-schema';
-import {findEntityByFrontMatterRegex, findEntityByNonFrontMatterRegex} from "../retrieval/retrieval.ts";
-import {FileType, type McpHandlerDefinition} from "../../typings.ts";
+import {findEntitiesByMetadataQuery, findEntityByNonFrontMatterRegex} from "../retrieval/retrieval.ts";
+import {FileType, FrontMatterPresetKeys, type McpHandlerDefinition} from "../../typings.ts";
 import {globToRegex} from "../../utils.ts";
 import {splitFileIntoSections} from "../editor/editing.ts";
 import {normalizeReason} from "../editor/text.ts";
@@ -9,40 +9,56 @@ import {normalizeReason} from "../editor/text.ts";
 // --- Tool: find_entities_by_metadata ---
 
 export const FindEntitiesByMetadataInput = z.object({
-  libraryName: z.string().describe('The name of the library to search in.'),
-  metaDataPattern: z.string().describe('The "key: value" pattern to search for in the front matter of entities. This is a regex pattern.'),
+  libraryName: z.string().describe('知识库名称'),
+  metadataQuery: z.object({
+    [FrontMatterPresetKeys.EntityType]: z.string().optional().describe('实体类型，支持 glob 模式，例如：`Person*`'),
+    [FrontMatterPresetKeys.DateModified]: z.string().optional().describe('修改日期，格式为 `YYYY-MM-DD`，支持 glob 模式，例如：`2023-12-*`'),
+    [FrontMatterPresetKeys.DateCreated]: z.string().optional().describe('创建日期，格式为 `YYYY-MM-DD`，支持 glob 模式，例如：`*-01-01`'),
+    [FrontMatterPresetKeys.RelationAs]: z.string().optional().describe('关系类型，支持 glob 模式，例如：`relation as member:*`'),
+    [FrontMatterPresetKeys.Aliases]: z.string().optional().describe('别名，支持 glob 模式，例如：`*alias*`'),
+  }).partial().describe('用于在实体元数据中搜索的键值对'),
+  reason: z.string().optional().describe('该调用的简要目的'),
 });
 
 /**
- * @tool find_entities_by_metadata
- * @description 通过在知识实体的 Front Matter（元数据）中搜索正则表达式模式来查找实体。
+ * @tool findEntitiesByMetadata
+ * @description 根据元数据键值对在实体中进行搜索。
  *
  * @input
- * - `libraryName`: (string, required) 要搜索的知识库的名称。
- * - `metaDataPattern`: (string, required) 用于在实体 Front Matter 中搜索的“键: 值”正则表达式模式。
- *
+ * - `libraryName`: (string, required) 知识库名称。
+ * - `metadataQuery`: (object, required) 用于在实体元数据中搜索的键值对。
  * @output
- * - (string) 返回一个字符串，指示找到的实体数量和实体名称列表。
- *   示例: `---status: success, message: 3 entities found, entities: entity1,entity2,entity3---`
+ * - (string) 返回一个 XML 格式的报告，其中包含两部分：
+ *   1. `<findEntitiesByMetadata-format-example>`: 展示了输出格式的样例。
+ *   2. `<findEntitiesByMetadata RESULT>`: 包含实际的搜索结果。每个匹配的实体都以 `- entityName (matchingKey: matchingValue, ...)` 的格式显示。
  *
  * @remarks
- * - 搜索是在 Front Matter 的每一行中进行的，匹配任何包含 `metaDataPattern` 的行。
- * - 返回的实体名称是去重后的列表。
- *
- * @todo
- * - [ ] 优化输出格式，使其更符合 XML 规范。
+ * - `metadataQuery` 中的值支持 glob 模式匹配。
+ * - 输出中的 `matchingValue` 仅列出符合条件的 frontMatter 值，不列出其他的 frontMatter 值。
  */
-export const findEntitiesByMetadataTool: McpHandlerDefinition<typeof FindEntitiesByMetadataInput, 'find_entities_by_metadata'> = {
+export const findEntitiesByMetadataTool: McpHandlerDefinition<typeof FindEntitiesByMetadataInput, 'findEntitiesByMetadata'> = {
   toolType: {
-    name: 'find_entities_by_metadata',
-    description: 'Finds entities by searching for a regex pattern in their front matter (metadata).',
+    name: 'findEntitiesByMetadata',
+    description: '根据元数据键值对在实体中进行搜索。',
     inputSchema: zodToJsonSchema(FindEntitiesByMetadataInput),
   },
-  handler: (args: unknown) => {
-    const {libraryName, metaDataPattern} = FindEntitiesByMetadataInput.parse(args);
-    const results = findEntityByFrontMatterRegex(libraryName, '*.md', metaDataPattern);
-    const entityNames = [...new Set(results.map(r => r.name))];
-    return `---status: success, message: ${entityNames.length} entities found, entities: ${entityNames.join(',')}---`;
+  handler: (args: unknown, name) => {
+    const { libraryName, metadataQuery, reason } = FindEntitiesByMetadataInput.parse(args);
+    const matchingEntities = findEntitiesByMetadataQuery(libraryName, metadataQuery as Record<string, string | boolean>);
+
+    let output = `<${name}-format-example>\n- entityName (matchingKey: matchingValue, matchingKey: matchingValue, ...)\n</${name}-format-example>\n`;
+    output += `<${name} reason=${normalizeReason(reason)} RESULT>\n`;
+
+    for (const entityName in matchingEntities) {
+      const matchedFrontMatter = matchingEntities[entityName].map(line => {
+        const [key, ...valueParts] = line.split(':');
+        return `${key.trim()}: ${valueParts.join(':').trim()}`;
+      }).join(', ');
+      output += `- ${entityName} (${matchedFrontMatter})\n`;
+    }
+    output += `</${name}>`;
+
+    return output;
   }
 };
 
