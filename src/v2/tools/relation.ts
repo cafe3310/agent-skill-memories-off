@@ -3,6 +3,7 @@ import {zodToJsonSchema} from 'zod-to-json-schema';
 import {FileType, type FrontMatterLine, type McpHandlerDefinition} from "../../typings.ts";
 import {readFrontMatterLines, writeFrontMatterLines} from "../editor/front-matter.ts";
 import {FrontMatterPresetKeys} from "../../typings.ts";
+import {normalizeReason} from "../editor/text.ts";
 
 const RelationSchema = z.object({
   type: z.string().describe('关系类型'),
@@ -11,122 +12,201 @@ const RelationSchema = z.object({
 
 export const CreateRelationsInputSchema = z.object({
   libraryName: z.string().describe('知识库名称'),
-  fromEntity: z.string().describe('关系发出的实体名称'),
-  relations: z.array(RelationSchema).describe('要创建的关系列表'),
+  relations: z.union([z.string(), z.array(z.string())]).describe('要创建的关系，格式为 “source, verb, target” 的字符串或字符串数组'),
+  reason: z.string().optional().describe('该调用的简要目的'),
 });
 
 /**
- * @tool create_relations
- * @description 在指定实体的 Front Matter 中添加一条或多条关系。关系以 `relation as <type>: <toEntityName>` 的形式存储。
+ * @tool createRelations
+ * @description 在一个或多个实体的 Front Matter 中批量添加关系。关系以 `relation <verb>: <target>` 的形式存储。
  *
  * @input
  * - `libraryName`: (string, required) 知识库的名称。
- * - `fromEntity`: (string, required) 关系发出的实体名称。
- * - `relations`: (object[], required) 要创建的关系列表。
- *   - `type`: (string, required) 关系类型，例如 `knows`, `likes`。
- *   - `to`: (string, required) 关系指向的目标实体名称。
+ * - `relations`: (string | string[], required) 要创建的关系，格式为 “source, verb, target” 的字符串或字符串数组。
+ * - `reason`: (string, optional) 本次操作的简要目的说明。
  *
  * @output
- * - (string) 返回一个 JSON 字符串，表示成功创建的关系列表。如果关系已存在，则不会重复创建。
+ * - (string) 返回一个 XML 格式的报告，其中包含两个部分：
+ *   1. `<createRelations CREATED RELATIONS>`: 列出所有成功创建的关系。
+ *   2. `<createRelations FAILED RELATIONS>`: 列出所有创建失败的关系及其原因。
  *
  * @remarks
- * - 关系存储在 `fromEntity` 的 Front Matter 中。
- * - 如果关系已存在，工具会忽略并不会重复添加。
- * - 不会验证 `to` 实体是否存在。
- * - **该工具尚未完全实现和验证。**
- *
- * @todo
- * - [ ] 增加对 `to` 实体存在性的验证。
- * - [ ] 优化输出格式，使其更符合 XML 规范。
- * - [ ] 编写和完善单元测试和端到端测试。
+ * - 关系存储在 `source` 实体的 Front Matter 中。
+ * - 如果关系已存在，工具会忽略，不会重复添加。
+ * - 如果 `source` 实体不存在，创建会失败。
+ * - 不会验证 `target` 实体是否存在。
  */
-export const createRelationsTool: McpHandlerDefinition<typeof CreateRelationsInputSchema, 'create_relations'> = {
+export const createRelationsTool: McpHandlerDefinition<typeof CreateRelationsInputSchema, 'createRelations'> = {
   toolType: {
-    name: 'create_relations',
-    description: '在一个实体的 Front Matter 中添加一条或多条关系',
+    name: 'createRelations',
+    description: '在一个或多个实体的 Front Matter 中批量添加关系',
     inputSchema: zodToJsonSchema(CreateRelationsInputSchema),
   },
-  handler: (args: unknown) => {
-    const {libraryName, fromEntity, relations} = CreateRelationsInputSchema.parse(args);
-    const existingFrontMatter = readFrontMatterLines(libraryName, FileType.FileTypeEntity, fromEntity) ?? [];
-    const newFrontMatter = [...existingFrontMatter];
-    const createdRelations: { from: string, to: string, type: string }[] = [];
+  handler: (args: unknown, name) => {
+    const { libraryName, relations, reason } = CreateRelationsInputSchema.parse(args);
+    const relationsArr = Array.isArray(relations) ? relations : [relations];
 
-    for (const relation of relations) {
-      const relationLine = `${FrontMatterPresetKeys.RelationAs} ${relation.type}: ${relation.to}` as FrontMatterLine;
-      if (!newFrontMatter.includes(relationLine)) {
-        newFrontMatter.push(relationLine);
-        createdRelations.push({from: fromEntity, to: relation.to, type: relation.type});
+    const parsedRelations = relationsArr.map(r => {
+      const parts = r.split(',').map(p => p.trim());
+      return { source: parts[0], verb: parts[1], target: parts[2] };
+    });
+
+    const createdRelations: { source: string, verb: string, target: string }[] = [];
+    const failedRelations: { source: string, verb: string, target: string, reason: string }[] = [];
+
+    const relationsBySource = parsedRelations.reduce((acc, rel) => {
+      if (!rel.source || !rel.verb || !rel.target) return acc;
+      if (!acc[rel.source]) {
+        acc[rel.source] = [];
+      }
+      acc[rel.source].push(rel);
+      return acc;
+    }, {} as Record<string, typeof parsedRelations>);
+
+    for (const sourceEntity in relationsBySource) {
+      try {
+        const existingFrontMatter = readFrontMatterLines(libraryName, FileType.FileTypeEntity, sourceEntity) ?? [];
+        const newFrontMatter = [...existingFrontMatter];
+        const relationsForSource = relationsBySource[sourceEntity];
+
+        for (const relation of relationsForSource) {
+          const relationLine = `${FrontMatterPresetKeys.RelationAs} ${relation.verb}: ${relation.target}` as FrontMatterLine;
+          if (!newFrontMatter.includes(relationLine)) {
+            newFrontMatter.push(relationLine);
+            createdRelations.push(relation);
+          }
+        }
+
+        if (newFrontMatter.length > existingFrontMatter.length) {
+          writeFrontMatterLines(libraryName, FileType.FileTypeEntity, sourceEntity, newFrontMatter);
+        }
+      } catch (error) {
+        relationsBySource[sourceEntity].forEach(rel => {
+          failedRelations.push({ ...rel, reason: (error as Error).message });
+        });
       }
     }
 
-    writeFrontMatterLines(libraryName, FileType.FileTypeEntity, fromEntity, newFrontMatter);
+    let result = '';
+    if (createdRelations.length > 0) {
+      result += `<${name} reason=${normalizeReason(reason)} CREATED RELATIONS>\n`;
+      result += createdRelations.map(r => `- ${r.source}, ${r.verb}, ${r.target}`).join('\n');
+      result += `\n</${name}>`;
+    }
 
-    return `Created relations: ${JSON.stringify(createdRelations)}`;
+    if (failedRelations.length > 0) {
+      if (result) result += '\n';
+      result += `<${name} reason=${normalizeReason(reason)} FAILED RELATIONS>\n`;
+      result += failedRelations.map(r => `- ${r.source}, ${r.verb}, ${r.target}: ${r.reason}`).join('\n');
+      result += `\n</${name}>`;
+    }
+
+    return result || `<${name} reason=${normalizeReason(reason)} NO ACTION TAKEN>\nNo new relations were created.\n</${name}>`;
   },
 };
 
+
 export const DeleteRelationsInputSchema = z.object({
   libraryName: z.string().describe('知识库名称'),
-  fromEntity: z.string().describe('关系发出的实体名称'),
-  relations: z.array(RelationSchema).describe('要删除的关系列表'),
+  relations: z.union([z.string(), z.array(z.string())]).describe('要删除的关系，格式为 “source, verb, target” 的字符串或字符串数组'),
+  reason: z.string().optional().describe('该调用的简要目的'),
 });
 
 /**
- * @tool delete_relations
- * @description 从指定实体的 Front Matter 中删除一条或多条关系。
+ * @tool deleteRelations
+ * @description 从一个或多个实体的 Front Matter 中批量删除关系。
  *
  * @input
  * - `libraryName`: (string, required) 知识库的名称。
- * - `fromEntity`: (string, required) 关系发出的实体名称。
- * - `relations`: (object[], required) 要删除的关系列表。
- *   - `type`: (string, required) 关系类型，例如 `knows`, `likes`。
- *   - `to`: (string, required) 关系指向的目标实体名称。
+ * - `relations`: (string | string[], required) 要删除的关系，格式为 “source, verb, target” 的字符串或字符串数组。
+ * - `reason`: (string, optional) 本次操作的简要目的说明。
  *
  * @output
- * - (string) 返回一个 JSON 字符串，表示成功删除的关系列表。
+ * - (string) 返回一个 XML 格式的报告，其中包含两个部分：
+ *   1. `<deleteRelations DELETED RELATIONS>`: 列出所有成功删除的关系。
+ *   2. `<deleteRelations FAILED RELATIONS>`: 列出所有删除失败的关系及其原因。
  *
  * @remarks
- * - 关系存储在 `fromEntity` 的 Front Matter 中。
- * - 只有当 `type` 和 `to` 都精确匹配时，关系才会被删除。
- * - **该工具尚未完全实现和验证。**
- *
- * @todo
- * - [ ] 优化输出格式，使其更符合 XML 规范。
- * - [ ] 编写和完善单元测试和端到端测试。
+ * - 只有当 `source`, `verb`, 和 `target` 都精确匹配时，关系才会被删除。
  */
-export const deleteRelationsTool: McpHandlerDefinition<typeof DeleteRelationsInputSchema, 'delete_relations'> = {
+export const deleteRelationsTool: McpHandlerDefinition<typeof DeleteRelationsInputSchema, 'deleteRelations'> = {
   toolType: {
-    name: 'delete_relations',
-    description: '从一个实体的 Front Matter 中删除一条或多条关系',
+    name: 'deleteRelations',
+    description: '从一个或多个实体的 Front Matter 中批量删除关系',
     inputSchema: zodToJsonSchema(DeleteRelationsInputSchema),
   },
-  handler: (args: unknown) => {
-    const {libraryName, fromEntity, relations} = DeleteRelationsInputSchema.parse(args);
-    const existingFrontMatter = readFrontMatterLines(libraryName, FileType.FileTypeEntity, fromEntity) ?? [];
-    const deletedRelations: { from: string, to: string, type: string }[] = [];
+  handler: (args: unknown, name) => {
+    const { libraryName, relations, reason } = DeleteRelationsInputSchema.parse(args);
+    const relationsArr = Array.isArray(relations) ? relations : [relations];
 
-    const newFrontMatter = existingFrontMatter.filter(line => {
-      const isRelationLine = line.startsWith(`${FrontMatterPresetKeys.RelationAs} `);
-      if (!isRelationLine) {
-        return true; // Keep non-relation lines
-      }
-
-      const [prefix, rest] = line.split(': ', 2);
-      const relationType = (prefix ?? '').replace(`${FrontMatterPresetKeys.RelationAs} `, '');
-      const toEntity = rest;
-
-      const shouldDelete = relations.some(r => r.type === relationType && r.to === toEntity);
-      if (shouldDelete) {
-        deletedRelations.push({from: fromEntity, to: toEntity ?? '', type: relationType});
-        return false; // Delete this line
-      }
-      return true; // Keep this relation line if it's not in the list to be deleted
+    const parsedRelations = relationsArr.map(r => {
+      const parts = r.split(',').map(p => p.trim());
+      return { source: parts[0], verb: parts[1], target: parts[2] };
     });
 
-    writeFrontMatterLines(libraryName, FileType.FileTypeEntity, fromEntity, newFrontMatter);
+    const deletedRelations: { source: string, verb: string, target: string }[] = [];
+    const failedRelations: { source: string, verb: string, target: string, reason: string }[] = [];
 
-    return `Deleted relations: ${JSON.stringify(deletedRelations)}`;
+    const relationsBySource = parsedRelations.reduce((acc, rel) => {
+      if (!rel.source || !rel.verb || !rel.target) return acc;
+      if (!acc[rel.source]) {
+        acc[rel.source] = [];
+      }
+      acc[rel.source].push(rel);
+      return acc;
+    }, {} as Record<string, typeof parsedRelations>);
+
+    for (const sourceEntity in relationsBySource) {
+      try {
+        const existingFrontMatter = readFrontMatterLines(libraryName, FileType.FileTypeEntity, sourceEntity) ?? [];
+        const relationsToDeleteForSource = relationsBySource[sourceEntity];
+        let linesChanged = false;
+
+        const newFrontMatter = existingFrontMatter.filter(line => {
+          const isRelationLine = line.startsWith(`${FrontMatterPresetKeys.RelationAs} `);
+          if (!isRelationLine) {
+            return true; // Keep non-relation lines
+          }
+
+          const [prefix, rest] = line.split(': ', 2);
+          const verb = (prefix ?? '').replace(`${FrontMatterPresetKeys.RelationAs} `, '');
+          const target = rest;
+
+          const shouldDelete = relationsToDeleteForSource.some(r => r.verb === verb && r.target === target);
+          if (shouldDelete) {
+            const deletedRel = relationsToDeleteForSource.find(r => r.verb === verb && r.target === target);
+            if(deletedRel) deletedRelations.push(deletedRel);
+            linesChanged = true;
+            return false; // Delete this line
+          }
+          return true; // Keep this relation line
+        });
+
+        if (linesChanged) {
+          writeFrontMatterLines(libraryName, FileType.FileTypeEntity, sourceEntity, newFrontMatter);
+        }
+      } catch (error) {
+        relationsBySource[sourceEntity].forEach(rel => {
+          failedRelations.push({ ...rel, reason: (error as Error).message });
+        });
+      }
+    }
+
+    let result = '';
+    if (deletedRelations.length > 0) {
+      result += `<${name} reason=${normalizeReason(reason)} DELETED RELATIONS>\n`;
+      result += deletedRelations.map(r => `- ${r.source}, ${r.verb}, ${r.target}`).join('\n');
+      result += `\n</${name}>`;
+    }
+
+    if (failedRelations.length > 0) {
+      if (result) result += '\n';
+      result += `<${name} reason=${normalizeReason(reason)} FAILED RELATIONS>\n`;
+      result += failedRelations.map(r => `- ${r.source}, ${r.verb}, ${r.target}: ${r.reason}`).join('\n');
+      result += `\n</${name}>`;
+    }
+
+    return result || `<${name} reason=${normalizeReason(reason)} NO ACTION TAKEN>\nNo relations were deleted.\n</${name}>`;
   },
 };
 

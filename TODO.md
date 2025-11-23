@@ -26,25 +26,26 @@
 
 ### 第二部分：待办事项列表
 
-#### 进行中
+#### In Progress
+- [ ] 2025-11-04-01-31-实现createRelationsTool.md
 
-#### 进行中
-
-#### 待办
+#### TODO
 - [ ] 2025-11-03-21-17-实现findEntitysByRelation.md
 - [ ] 2025-11-03-21-17-实现getEntity.md
 - [ ] 2025-11-03-21-17-实现listRecentEntities.md
 - [ ] 2025-11-03-23-59-findEntitiesByMetadata 暂时不支持创建时间和更改时间，因为我们还没实现这两个机制。
 - [ ] 2025-11-03-23-59-findEntitiesByMetadata 暂时不支持 relationAs, 因为我们还没实现这个机制。
 
-#### 已完成
+#### Done
 - [x] 2025-11-03-21-17-实现listEntityTypes.md
 - [x] 2025-11-03-21-17-增强find_entities_by_metadata.md
 - [x] 2025-11-03-21-17-实现search_in_contents.md
 - [x] 2025-11-03-21-19-确保所有测试通过.md
 - [x] 2025-11-03-01-41-订正md文档，反映项目当前现状.md
 
-#### 已搁置
+#### Blocked
+
+#### On Hold
 
 ---
 
