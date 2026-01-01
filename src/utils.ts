@@ -1,6 +1,10 @@
+
 import fs from "fs";
 
-// 条件断言，不满足则抛异常并记录日志
+// region 一些通用方法
+
+// 条件断言
+// 不满足则抛异常并记录日志
 export function checks(condition: boolean, message: string): asserts condition {
   if (!condition) {
     const err = new Error(message);
@@ -9,7 +13,8 @@ export function checks(condition: boolean, message: string): asserts condition {
   }
 }
 
-// 检查对象属性及类型
+// 对象属性和类型断言
+// 不满足则抛异常并记录日志
 export function checkObjHas<T>(x: unknown, key: string, valueType: string): asserts x is T {
   if (
     typeof x !== "object" ||
@@ -23,22 +28,30 @@ export function checkObjHas<T>(x: unknown, key: string, valueType: string): asse
   }
 }
 
-// 日志相关
 let logConsole: Console = console;
 
-export function logfile(componentName: string, ...args: unknown[]) {
-  logConsole.error(componentName, ...args);
-}
-
+// 记录到日志 -- 调试
 export function logfileV(componentName: string, ...args: unknown[]) {
-  logConsole.error(componentName, ...args);
+  logConsole.debug(componentName, ...args);
 }
 
+// 记录到日志 -- 信息
+export function logfile(componentName: string, ...args: unknown[]) {
+  logConsole.info(componentName, ...args);
+}
+
+// 记录到日志 -- 警告
+export function logfileW(componentName: string, ...args: unknown[]) {
+  logConsole.warn(componentName, ...args);
+}
+
+// 记录到日志 -- 错误
 export function logfileE(componentName: string, error: unknown, ...args: unknown[]) {
   logConsole.error(componentName, error, ...args);
 }
 
-// 设置日志输出文件
+// 设置日志输出目录。
+// 日志文件会记录在目录中，文件名：mcp-server-memories-off-log-YYYY-MM-DD.log
 export function setLogOutputFile(dir: string) {
   const date = new Date().toISOString().split("T")[0];
   const file = `${dir}/mcp-server-memories-off-log-${date}.log`;
@@ -46,17 +59,35 @@ export function setLogOutputFile(dir: string) {
   logConsole = new console.Console(fs.createWriteStream(file, { flags: 'a' }));
 }
 
+export const ENV_VARS = {
+  MEM_NAME: {
+    key: 'MEM_NAME',
+    default: 'memory',
+  },
+  MEM_LOG_DIR: {
+    key: 'MEM_LOG_DIR',
+    default: '.',
+  },
+  MEM_LIBRARIES: {
+    key: 'MEM_LIBRARIES',
+    default: './memory-library',
+  },
+}
+
 // 获取环境变量，未设置则返回默认值并记录
 export function getEnvVar(key: string, def: string): string {
   const val = process.env[key];
   if (val === undefined) {
-    logfile('utils', `Env ${key} not set, using default: ${def}`);
+    logfileW('utils', `Env ${key} not set, using default: ${def}`);
     return def;
   }
   logfile('utils', `Env ${key}: ${val}`);
   return val;
 }
 
+// 将 glob 模式转换为正则表达式字符串
+// 输出的正则表达式字符串不包含起始和结束标志（^ 和 $），也不会在前后自动添加 .*
+// 例如 "this*is" -> "this.*is"
 export function globToRegex(globPattern: string): string {
   // Escape special regex characters
   let regex = globPattern.replace(/[.+^${}()|[\\]/g, '\\$&');
@@ -65,3 +96,5 @@ export function globToRegex(globPattern: string): string {
   regex = regex.replace(/\?/g, '.');  // ? matches any single character
   return regex;
 }
+
+// endregion

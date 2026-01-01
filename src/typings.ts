@@ -76,16 +76,15 @@ export const enum FileType {
   FileTypeMeta,
 }
 
-
-// 事物名称 - 如实体，记录名称。不带文件后缀名
+// 事物名称 - 如实体名称，记录名称。不带文件后缀名
 export type ThingName = WeakOpaque<string, 'ThingName'>;
 
 // 知识库名称
-// 如 "MyProjectDocs"
+// 如 "MyProjectDocs" -- 一个名为 MyProjectDocs 的知识库
 export type LibraryName = WeakOpaque<string, 'LibraryName'>;
 
 // 文件相对路径，相对于知识库根目录。
-// 如 "guides/installation.md"
+// 如 "guides/installation.md" -- 知识库根目录下的 guides 文件夹中的 installation.md 文件
 export type FileRelativePath = WeakOpaque<string, 'FileRelativePath'>;
 
 // 文件绝对路径
@@ -103,11 +102,11 @@ export type FolderAbsolutePath = WeakOpaque<string, 'FolderAbsolutePath'>;
 // content 包括 toc, frontmatter, 以及普通正文
 
 // 模糊匹配的内容块，基于行。
-// 如 "this is the beginning of the section*"
+// 如 "this is the beginning of the section*" -- 表达「可匹配任何对应内容的块」的 filter
 export type ContentGlobLine = WeakOpaque<string, 'ContentGlobLine'>;
 
 // 精确匹配的内容块，单行。
-// 如 "  - This is the beginning of the section."
+// 如 "  - This is the beginning of the section." -- 表达「只能匹配对应内容的块」的 filter
 export type ContentExactLine = WeakOpaque<string, 'ContentExactLine'>;
 
 // 行号，从 1 开始计数

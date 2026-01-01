@@ -1,4 +1,4 @@
-import {checks, logfile} from '../utils.ts';
+import {checks, ENV_VARS, getEnvVar, logfile} from '../utils.ts';
 import path from "path";
 import shell from 'shelljs';
 import type {FileAbsolutePath, FolderAbsolutePath, FileType, ThingName} from "../typings.ts";
@@ -11,7 +11,7 @@ export const JOURNEYS_DIR = 'journeys';
 export const META_FILE = 'meta.md';
 
 // Parses the library paths from environment variables.
-const librariesStr = process.env['MEM_LIBRARIES'];
+const librariesStr = getEnvVar(ENV_VARS.MEM_LIBRARIES.key, ENV_VARS.MEM_LIBRARIES.default);
 checks(!!librariesStr, 'MEM_LIBRARIES environment variable is not set. Please provide a comma-separated list of name:path pairs.');
 
 const libraries = new Map<string, string>();

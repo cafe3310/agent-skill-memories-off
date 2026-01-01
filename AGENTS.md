@@ -30,7 +30,7 @@
 
 - **测试流程**:
     - 项目采用 `bun test` 作为统一的测试执行器。测试代码主要由位于 `src/test/e2e/` 目录下的端到端测试构成。
-    - **规范**: 所有新功能或 Bug 修复都应伴随相应的自动化测试。测试文件应以 `.test.ts` 或 `.spec.ts` 结尾。
+    - **规范**: 所有新功能或 Bug 修复都应伴随相应的自动化测试。测试文件应以 `.test.ts` 结尾。
 
     - **构建与运行验证**:
         - 在进行了可能影响启动或核心功能的修改后，必须执行以下手动验证流程：
@@ -77,7 +77,8 @@
 - **分支与提交规范**:
     - **分支**:
             - `master`: 主分支，始终保持稳定和可发布状态。
-            - `develop`: 开发主分支，集成所有已完成的功能。    - **提交**: 遵循 [Conventional Commits](https://www.conventionalcommits.org/) 规范，例如 `feat: Add subgraph reading feature` 或 `fix: Correct entity merging logic`。
+            - `develop`: 开发主分支，集成所有已完成的功能。
+    - **提交**: 遵循 [Conventional Commits](https://www.conventionalcommits.org/) 规范，例如 `feat: Add subgraph reading feature` 或 `fix: Correct entity merging logic`。
 
 ---
 
@@ -92,21 +93,13 @@
     - **本地优先**: 数据存储在本地，不联网。
     - **结构化知识**: 将信息整理为知识图谱。
     - **灵活检索**: 支持多种方式查询图谱。
-    - **数据可读性**: 知识图谱以人类可读的 YAML 格式存储。
 
 - **技术栈与架构**:
-    - **运行时**: Node.js
+    - **运行时**: Bun
     - **构建工具**: Bun
     - **语言**: TypeScript
     - **核心框架**: `@modelcontextprotocol/sdk` 用于实现 MCP 服务。
     - **数据处理**: `zod` 和 `zod-to-json-schema` 用于工具的输入验证和模式生成。
-    - **架构**:
-        - 一个通过标准输入/输出（Stdio）与 LLM 客户端通信的命令行服务。
-        - v2 架构的核心是 `src/v2/` 目录，它包含了所有核心逻辑。
-        - `src/v2/runtime.ts` 负责运行时的组件。
-        - `src/v2/editor/` 目录包含用于文件编辑操作的模块。
-        - `src/v2/retrieval/` 目录包含用于检索的模块。
-        - `src/v2/tools/` 目录定义了所有可供 LLM 调用的工具。
 
 - **项目结构**:
     - `src/index.ts`: 应用主入口，负责服务启动和配置。

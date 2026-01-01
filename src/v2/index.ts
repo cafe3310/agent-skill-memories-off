@@ -1,6 +1,6 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { getEnvVar, logfile, setLogOutputFile } from "../utils.ts";
+import { ENV_VARS, getEnvVar, logfile, setLogOutputFile } from "../utils.ts";
 import { manualTools } from "./tools/manual.ts";
 import { entityTools } from "./tools/entity.ts";
 import { backupTools } from "./tools/backup.ts";
@@ -11,8 +11,8 @@ import { retrievalTools } from "./tools/retrieval.ts"; // Changed import
 // This is the entry point for the v2 server.
 export async function runV2() {
   const config = {
-    MEM_NAME: getEnvVar('MEM_NAME', 'memory'),
-    MEM_LOG_DIR: getEnvVar('MEM_LOG_DIR', '.'),
+    MEM_NAME: getEnvVar(ENV_VARS.MEM_NAME.key, ENV_VARS.MEM_NAME.default),
+    MEM_LOG_DIR: getEnvVar(ENV_VARS.MEM_LOG_DIR.key, ENV_VARS.MEM_LOG_DIR.default),
   }
   setLogOutputFile(config.MEM_LOG_DIR);
   logfile('v2', 'Starting MCP server v2...');
@@ -27,7 +27,7 @@ export async function runV2() {
   });
 
   // Register tools
-  const allTools = [...manualTools, ...entityTools, ...backupTools, ...relationTools, ...retrievalTools]; // Changed allTools
+  const allTools = [...manualTools, ...entityTools, ...backupTools, ...relationTools, ...retrievalTools];
 
   // Register request handlers
   const toolTypes = Object.values(allTools).map(t => t.toolType);
