@@ -10,7 +10,7 @@ import {
   type ThingName
 } from "@src/entities/editor/types.ts";
 import {readFileContent, writeFileContent} from "@src/basics/file-ops.ts";
-import {getToc, matchHeadingNoThrow, matchToc} from "./toc.ts";
+import {getToc, matchHeadingInTocNoThrow, matchHeadingInToc} from "./toc.ts";
 import {resolveContentLocator} from "./locator.ts";
 import {checks} from "@src/basics/utils.ts";
 
@@ -35,7 +35,7 @@ export function splitFileIntoSections(libraryName: LibraryName, fileType: FileTy
 export function readSectionContent(libraryName: LibraryName, fileType: FileType, name: ThingName, tocGlob: HeadingGlob): string[] | null {
   const lines = readFileContent(libraryName, fileType, name);
   const tocList = getToc({ library: libraryName, type: fileType, name: name });
-  const matchedTocs = matchHeadingNoThrow({library: libraryName, type: fileType, name: name}, tocGlob);
+  const matchedTocs = matchHeadingInTocNoThrow({library: libraryName, type: fileType, name: name}, tocGlob);
 
   // Only proceed if we find exactly one match
   if (matchedTocs.length !== 1) {
@@ -70,7 +70,7 @@ export function replaceInToc(libraryName: LibraryName, fileType: FileType, name:
 
   const tocList = getToc({ library: libraryName, type: fileType, name: name });
   // args to obj: {library: libraryName, type: fileType, name: name}
-  const matchedToc = matchToc({ library: libraryName, type: fileType, name: name }, toc);
+  const matchedToc = matchHeadingInToc({ library: libraryName, type: fileType, name: name }, toc);
   const tocLineNumber = matchedToc.lineNumber;
 
   const tocIndex = tocList.findIndex(item => item.lineNumber === tocLineNumber);
@@ -112,7 +112,7 @@ export function insertInTocAfter(libraryName: LibraryName, fileType: FileType, n
   const lines = readFileContent(libraryName, fileType, name);
 
   const tocList = getToc({ library: libraryName, type: fileType, name: name });
-  const matchedToc = matchToc({ library: libraryName, type: fileType, name: name }, toc);
+  const matchedToc = matchHeadingInToc({ library: libraryName, type: fileType, name: name }, toc);
   const tocLineNumber = matchedToc.lineNumber;
 
   const tocIndex = tocList.findIndex(item => item.lineNumber === tocLineNumber);
@@ -154,7 +154,7 @@ export function addContentToSection(libraryName: LibraryName, fileType: FileType
 
   // const tocList = getToc(libraryName, fileType, name);
   const tocList = getToc({ library: libraryName, type: fileType, name: name });
-  const matchedToc = matchToc({ library: libraryName, type: fileType, name: name }, toc);
+  const matchedToc = matchHeadingInToc({ library: libraryName, type: fileType, name: name }, toc);
   const tocLineNumber = matchedToc.lineNumber;
 
   const tocIndex = tocList.findIndex(item => item.lineNumber === tocLineNumber);
@@ -188,7 +188,7 @@ export function deleteInToc(libraryName: LibraryName, fileType: FileType, name: 
   const lines = readFileContent(libraryName, fileType, name);
 
   const tocList = getToc({ library: libraryName, type: fileType, name: name });
-  const matchedToc = matchToc({ library: libraryName, type: fileType, name: name }, toc);
+  const matchedToc = matchHeadingInToc({ library: libraryName, type: fileType, name: name }, toc);
   const tocLineNumber = matchedToc.lineNumber;
 
   const tocIndex = tocList.findIndex(item => item.lineNumber === tocLineNumber);
@@ -214,7 +214,7 @@ export function deleteInToc(libraryName: LibraryName, fileType: FileType, name: 
 export function replaceSection(libraryName: LibraryName, fileType: FileType, name: ThingName, oldTocGlob: HeadingGlob, newHeading: string, newBodyContent: string[]): void {
   const lines = readFileContent(libraryName, fileType, name);
   const tocList = getToc({ library: libraryName, type: fileType, name: name });
-  const matchedToc = matchToc({ library: libraryName, type: fileType, name: name }, oldTocGlob);
+  const matchedToc = matchHeadingInToc({ library: libraryName, type: fileType, name: name }, oldTocGlob);
   const tocLineNumber = matchedToc.lineNumber;
 
   const tocIndex = tocList.findIndex(item => item.lineNumber === tocLineNumber);

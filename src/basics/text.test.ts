@@ -1,7 +1,7 @@
 import {describe, expect, it} from 'bun:test';
 import '@src/tests/setup';
 
-import {normalizeHeading, normalizeReason, toHeadingLine, normalizeYamlKey, normalizeFrontMatterLine} from "./text.ts";
+import {normalizeHeading, normalizeReason, textToHeading, normalizeYamlKey, normalizeFrontmatterLine} from "./text.ts";
 
 describe('', () => {
   it('normalize', () => {
@@ -17,8 +17,8 @@ describe('', () => {
   });
 
   it('toTocLine', () => {
-    expect(toHeadingLine('My Section')).toBe('## my section');
-    expect(toHeadingLine(' Another Section: Details ', 3)).toBe('### another section details');
+    expect(textToHeading('My Section')).toBe('## my section');
+    expect(textToHeading(' Another Section: Details ', 3)).toBe('### another section details');
   });
 
   it('normalizeYamlKey', () => {
@@ -52,19 +52,19 @@ describe('', () => {
 
   it('normalizeFrontMatterLine', () => {
     // Line with key-value pair
-    expect(normalizeFrontMatterLine('  title: My Document  ')).toBe('title: My Document');
-    expect(normalizeFrontMatterLine('Key With Spaces: value')).toBe('key with spaces: value');
-    expect(normalizeFrontMatterLine('key: value with: colon')).toBe('key: value with: colon'); // Only first colon splits
-    expect(normalizeFrontMatterLine('  nested: {a: 1}  ')).toBe('nested: {a: 1}');
-    expect(normalizeFrontMatterLine('yaml: key with : value')).toBe('yaml: key with : value');
-    expect(normalizeFrontMatterLine('key-with-!: value')).toBe('keywith: value');
+    expect(normalizeFrontmatterLine('  title: My Document  ')).toBe('title: My Document');
+    expect(normalizeFrontmatterLine('Key With Spaces: value')).toBe('key with spaces: value');
+    expect(normalizeFrontmatterLine('key: value with: colon')).toBe('key: value with: colon'); // Only first colon splits
+    expect(normalizeFrontmatterLine('  nested: {a: 1}  ')).toBe('nested: {a: 1}');
+    expect(normalizeFrontmatterLine('yaml: key with : value')).toBe('yaml: key with : value');
+    expect(normalizeFrontmatterLine('key-with-!: value')).toBe('keywith: value');
 
     // Line without colon (entire line as key)
-    expect(normalizeFrontMatterLine('  just a key  ')).toBe('just a key');
-    expect(normalizeFrontMatterLine('another key & value')).toBe('another key value');
+    expect(normalizeFrontmatterLine('  just a key  ')).toBe('just a key');
+    expect(normalizeFrontmatterLine('another key & value')).toBe('another key value');
 
     // Empty line
-    expect(normalizeFrontMatterLine('')).toBe('');
-    expect(normalizeFrontMatterLine('  ')).toBe('');
+    expect(normalizeFrontmatterLine('')).toBe('');
+    expect(normalizeFrontmatterLine('  ')).toBe('');
   });
 });

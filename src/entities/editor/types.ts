@@ -68,7 +68,7 @@ export type ContentLocator = {
 // 已解析的内容定位器，包含目标事物定位器和内容定位器的详细信息
 export type ResolvedContentLocator = {
   target: ThingLocator,
-  origin: ContentLocator,
+  origin: ContentLocator | 'frontmatter',
   beginLineNumber: ContentLineNumber;
   endLineNumber: ContentLineNumber;
   beginContentLine: ContentLineExact;

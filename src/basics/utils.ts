@@ -1,14 +1,15 @@
-
 import fs from "fs";
 
-// region 一些通用方法
+let disableLogOnError = false;
 
 // 条件断言
 // 不满足则抛异常并记录日志
 export function checks(condition: boolean, message: string): asserts condition {
   if (!condition) {
     const err = new Error(message);
-    logfileE('Checks failed', err);
+    if (!disableLogOnError) {
+      logfileE('Checks failed', err);
+    }
     throw err;
   }
 }
@@ -23,7 +24,9 @@ export function checkObjHas<T>(obj: unknown, key: string, valueType: string): as
     typeof (obj as Record<string, unknown>)[key] !== valueType
   ) {
     const err = new Error(`Type check failed: ${key} is not ${valueType}`);
-    logfileE('checkObjHas', err);
+    if (!disableLogOnError) {
+      logfileE('checkObjHas', err);
+    }
     throw err;
   }
 }
@@ -57,6 +60,11 @@ export function setLogOutputFile(dir: string) {
   const file = `${dir}/mcp-server-memories-off-log-${date}.log`;
   console.error('mcp-server-memories-off log file is at', file);
   logConsole = new console.Console(fs.createWriteStream(file, { flags: 'a' }));
+}
+
+// 禁用异常时的日志输出，用于测试环境
+export function disableLogError() {
+  disableLogOnError = true;
 }
 
 export const ENV_VARS = {
@@ -96,5 +104,3 @@ export function globToRegex(globPattern: string): string {
   regex = regex.replace(/\?/g, '.');  // ? matches any single character
   return regex;
 }
-
-// endregion

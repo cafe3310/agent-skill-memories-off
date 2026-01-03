@@ -2,7 +2,7 @@ import {z} from 'zod';
 import {zodToJsonSchema} from 'zod-to-json-schema';
 import {normalizeReason} from "@src/basics/text.ts";
 import type {McpHandlerDefinition} from "@src/features/types.ts";
-import {readFrontMatterLines, writeFrontMatterLines} from "@src/entities/editor/front-matter.ts";
+import {readFrontMatter, writeFrontMatter} from "@src/entities/editor/front-matter.ts";
 import {FileType, type FrontMatterLine, FrontMatterPresetKeys} from "@src/entities/editor/types.ts";
 
 const RelationSchema = z.object({
@@ -65,7 +65,7 @@ export const createRelationsTool: McpHandlerDefinition<typeof CreateRelationsInp
 
     for (const sourceEntity in relationsBySource) {
       try {
-        const existingFrontMatter = readFrontMatterLines(libraryName, FileType.FileTypeEntity, sourceEntity) ?? [];
+        const existingFrontMatter = readFrontMatter({library: libraryName, fileType: FileType.FileTypeEntity, entityName: sourceEntity});
         const newFrontMatter = [...existingFrontMatter];
         const relationsForSource = relationsBySource[sourceEntity];
 
@@ -78,7 +78,7 @@ export const createRelationsTool: McpHandlerDefinition<typeof CreateRelationsInp
         }
 
         if (newFrontMatter.length > existingFrontMatter.length) {
-          writeFrontMatterLines(libraryName, FileType.FileTypeEntity, sourceEntity, newFrontMatter);
+          writeFrontMatter({library: libraryName, type: FileType.FileTypeEntity, name: sourceEntity}, newFrontMatter);
         }
       } catch (error) {
         relationsBySource[sourceEntity].forEach(rel => {
@@ -158,7 +158,7 @@ export const deleteRelationsTool: McpHandlerDefinition<typeof DeleteRelationsInp
 
     for (const sourceEntity in relationsBySource) {
       try {
-        const existingFrontMatter = readFrontMatterLines(libraryName, FileType.FileTypeEntity, sourceEntity) ?? [];
+        const existingFrontMatter = readFrontMatter({library: libraryName, type: FileType.FileTypeEntity, name: sourceEntity});
         const relationsToDeleteForSource = relationsBySource[sourceEntity];
         let linesChanged = false;
 
@@ -183,7 +183,7 @@ export const deleteRelationsTool: McpHandlerDefinition<typeof DeleteRelationsInp
         });
 
         if (linesChanged) {
-          writeFrontMatterLines(libraryName, FileType.FileTypeEntity, sourceEntity, newFrontMatter);
+          writeFrontMatter({library: libraryName, type: FileType.FileTypeEntity, name: sourceEntity}, newFrontMatter);
         }
       } catch (error) {
         relationsBySource[sourceEntity].forEach(rel => {

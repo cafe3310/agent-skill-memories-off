@@ -1,5 +1,6 @@
 import path from "node:path";
 import type {FileContent} from "@src/entities/editor/types.ts";
+import {disableLogError} from "@src/basics/utils.ts";
 
 const projectRoot = path.join(__dirname, '..', '..');
 export const tmpDir = path.join(projectRoot, 'tmp');
@@ -56,3 +57,5 @@ export const MOCK_FILE_CONTENT_LINES_2: FileContent = [
 
 export const MOCK_LIBRARY_NAME = 'test-library';
 export const MOCK_ENTITY_NAME = 'test';
+
+disableLogError();

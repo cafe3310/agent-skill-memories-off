@@ -1,6 +1,6 @@
 import shell from 'shelljs';
 import path from 'path';
-import {readFrontMatterLines, locateFrontMatter} from "../editor/front-matter.ts";
+import {locateFrontMatter, readFrontMatter} from "../editor/front-matter.ts";
 import {
   type ContentLineExact,
   FileType,
@@ -21,7 +21,7 @@ export function listAllEntityTypesWithCounts(libraryName: LibraryName): { type: 
 
   for (const filePath of files) {
     const thingName = getThingNameFromPath(filePath, FileType.FileTypeEntity);
-    const frontMatter = readFrontMatterLines(libraryName, FileType.FileTypeEntity, thingName);
+    const frontMatter = readFrontMatter({library: libraryName, type: FileType.FileTypeEntity, name: thingName});
     if (!frontMatter) {
       continue;
     }
@@ -45,8 +45,8 @@ export function findEntitiesByMetadataQuery(libraryName: LibraryName, metadataQu
 
   for (const filePath of files) {
     const thingName = getThingNameFromPath(filePath, FileType.FileTypeEntity);
-    const frontMatter = readFrontMatterLines(libraryName, FileType.FileTypeEntity, thingName);
-    if (!frontMatter) {
+    const frontMatter = readFrontMatter({library: libraryName, type: FileType.FileTypeEntity, name: thingName});
+    if (!frontMatter || frontMatter.length === 0) {
       continue;
     }
 
@@ -112,10 +112,11 @@ export function findEntityByNonFrontMatterRegex(libraryName: LibraryName, fileGl
   for (const filePath of matchedFiles) {
     const thingName = getThingNameFromPath(filePath, FileType.FileTypeEntity);
     const fileLines = readFileContent(libraryName, FileType.FileTypeEntity, thingName);
-    const frontMatter: { startLineNumber: ContentLineNumber; endLineNumber: ContentLineNumber } | null = locateFrontMatter(fileLines);
+    const frontMatter = locateFrontMatter({library: libraryName, type: FileType.FileTypeEntity, name: thingName});
     let contentLines: string[];
     if (frontMatter) {
-      contentLines = fileLines.slice(0, frontMatter.startLineNumber - 1).concat(fileLines.slice(frontMatter.endLineNumber));
+      contentLines = fileLines.slice(0, frontMatter.beginLineNumber - 1)
+        .concat(fileLines.slice(frontMatter.endLineNumber));
     } else {
       contentLines = fileLines;
     }
@@ -148,9 +149,9 @@ export function findEntityByFrontMatterRegex(libraryName: LibraryName, fileGlobP
   for (const filePath of matchedFiles) {
     const thingName = getThingNameFromPath(filePath, FileType.FileTypeEntity);
     const fileLines = readFileContent(filePath, FileType.FileTypeEntity, thingName);
-    const frontMatter: { startLineNumber: ContentLineNumber; endLineNumber: ContentLineNumber } | null = locateFrontMatter(fileLines);
+    const frontMatter = locateFrontMatter({library: libraryName, type: FileType.FileTypeEntity, name: thingName});
     if (frontMatter) {
-      const frontMatterLines = fileLines.slice(frontMatter.startLineNumber - 1, frontMatter.endLineNumber);
+      const frontMatterLines = fileLines.slice(frontMatter.beginLineNumber - 1, frontMatter.endLineNumber);
       const frontMatterRegex = new RegExp(frontMatterRegexPattern);
       frontMatterLines.forEach((line) => {
         if (frontMatterRegex.test(line)) {

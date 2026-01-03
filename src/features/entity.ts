@@ -3,14 +3,16 @@ import {zodToJsonSchema} from 'zod-to-json-schema';
 import {
   FileType,
   type FileContent,
-  type FrontMatterLine,
-  FrontMatterPresetKeys
+  FrontMatterPresetKeys, type FrontMatter
 } from "@src/entities/editor/types.ts";
 import shell from 'shelljs';
 import path from 'path';
 import {createFile, trashFile, readFileContent, renameFile, writeFileContent} from "@src/basics/file-ops.ts";
 import {getToc} from "@src/entities/editor/toc.ts";
-import {mergeFrontmatter, readFrontMatterLines, writeFrontMatterLines} from "@src/entities/editor/front-matter.ts";
+import {
+  mergeFrontMatter,
+  readFrontMatter, writeFrontMatter
+} from "@src/entities/editor/front-matter.ts";
 import {
   addContentToThing,
   addContentToSection,
@@ -87,21 +89,21 @@ export const addEntitiesTool: McpHandlerDefinition<typeof AddEntitiesInputSchema
       try {
         const { name, content, type, aliases, ...customFields } = entity;
         createFile(libraryName, FileType.FileTypeEntity, name, [] as FileContent);
-        const frontMatter: FrontMatterLine[] = [];
+        const frontMatter: FrontMatter = [];
         if (type) {
-          frontMatter.push(`${FrontMatterPresetKeys.EntityType}: ${type}`);
+          frontMatter.push({name: FrontMatterPresetKeys.EntityType, value: type});
         }
         if (aliases && aliases.length > 0) {
-          frontMatter.push(`${FrontMatterPresetKeys.Aliases}: ${aliases.join(', ')}`);
+          frontMatter.push({name: FrontMatterPresetKeys.Aliases, value: aliases.join(', ')});
         }
         for (const [key, value] of Object.entries(customFields)) {
           if (value !== undefined) {
-            frontMatter.push(`${key}: ${String(value)}`);
+            frontMatter.push({name: key, value: String(value)});
           }
         }
 
         if (frontMatter.length > 0) {
-          writeFrontMatterLines(libraryName, FileType.FileTypeEntity, name, frontMatter);
+          writeFrontMatter({library: libraryName, type: FileType.FileTypeEntity, name}, frontMatter);
         }
         if (content) {
           addContentToThing(libraryName, FileType.FileTypeEntity, name, content.split('\n'));
@@ -754,10 +756,10 @@ export const mergeEntitiesTool: McpHandlerDefinition<typeof MergeEntitiesInputSc
 
     try {
       // 1. Handle Frontmatter
-      let targetFrontmatter = readFrontMatterLines(libraryName, FileType.FileTypeEntity, targetName) ?? [];
+      let targetFrontmatter = readFrontMatter({library: libraryName, type: FileType.FileTypeEntity, name: targetName});
       for (const sourceName of sourceNames) {
-        const sourceFrontmatter = readFrontMatterLines(libraryName, FileType.FileTypeEntity, sourceName) ?? [];
-        targetFrontmatter = mergeFrontmatter(targetFrontmatter, sourceFrontmatter);
+        const sourceFrontmatter = readFrontMatter({library: libraryName, type: FileType.FileTypeEntity, name: sourceName});
+        targetFrontmatter = mergeFrontMatter(targetFrontmatter, sourceFrontmatter);
       }
 
       // 2. Split files into sections

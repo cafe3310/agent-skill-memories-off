@@ -43,10 +43,13 @@ export function resolveContentLocator(target: ThingLocator, locator: ContentLoca
   }
 }
 
-// linesVerifyBeginEnd(lines, beginLineNo, endLineNo, beginLine, endLine, searchStartLine?, searchEndLine?) => void
-// 检查给定的行数组中，从 beginLineNo 到 endLineNo 的内容，开头和结尾与 beginLine 和 endLine 匹配。
-// 如果设置了 searchStartLine 和 searchEndLine，则只在该范围内进行检查。
-// 若不匹配，则抛出错误。
+/**
+ * linesVerifyBeginEnd(lines, beginLineNo, endLineNo, beginLine, endLine, searchStartLine?, searchEndLine?) => void
+ * 检查给定的行数组中，从 beginLineNo 到 endLineNo 的内容，开头和结尾与 beginLine 和 endLine 匹配。
+ * 如果设置了 searchStartLine 和 searchEndLine，则只在该范围内进行检查。
+ * 若不匹配，则抛出错误。
+ * @deprecated: 用 resolveContentLocator 替代
+ */
 export function linesVerifyBeginEnd(content: FileContent,
                                     beginLineNo: ContentLineNumber, endLineNo: ContentLineNumber,
                                     beginLine: string, endLine: string,
@@ -60,10 +63,13 @@ export function linesVerifyBeginEnd(content: FileContent,
   checks(actualEndLine === endLine, `结束行在第 ${endLineNo} 行不匹配。`);
 }
 
-// linesMatchContent(lines, contentLines, searchStartLine?, searchEndLine?) => LineNumber
-// 在给定的行数组中，检查是否存在与 contentLines 完全匹配的连续行段，且是唯一的匹配。
-// 如果设置了 searchStartLine 和 searchEndLine，则只在该范围内进行检查。
-// 若找到唯一匹配，返回起始行号（从 1 开始计数）；否则抛出异常。
+/**
+ * linesMatchContent(lines, contentLines, searchStartLine?, searchEndLine?) => LineNumber
+ * 在给定的行数组中，检查是否存在与 contentLines 完全匹配的连续行段，且是唯一的匹配。
+ * 如果设置了 searchStartLine 和 searchEndLine，则只在该范围内进行检查。
+ * 若找到唯一匹配，返回起始行号（从 1 开始计数）；否则抛出异常。
+ * @deprecated: 用 resolveContentLocator 替代
+ */
 export function linesMatchContent(lines: FileContent,
                                   contentLines: string[],
                                   searchStartLine?: ContentLineNumber, searchEndLine?: ContentLineNumber): ContentLineNumber {

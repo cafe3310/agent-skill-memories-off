@@ -87,7 +87,7 @@ describe('file content modifications', () => {
   it('deleteInToc should throw if content is not in the specified TOC section', () => {
     const contentToDelete = ['Final content here.']; // This is in Section 2
     expect(() => deleteInToc(MOCK_LIBRARY_NAME, FileType.FileTypeEntity, MOCK_ENTITY_NAME, 'Section 1: Details', contentToDelete))
-      .toThrow('未找到匹配的内容块。');
+      .toThrowError('未找到匹配的内容块');
   });
 
   it('replace should substitute content based on line numbers', () => {
