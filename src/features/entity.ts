@@ -363,7 +363,7 @@ export const getEntitiesTocTool: McpHandlerDefinition<typeof GetEntitiesTocInput
 
     for (const entityName of entityNamesArray) {
       try {
-        const tocList = getToc(libraryName, FileType.FileTypeEntity, entityName);
+        const tocList = getToc({library: libraryName, type: FileType.FileTypeEntity, name: entityName});
         const toc = tocList.map(item => item.text);
         successResults.push({name: entityName, toc});
       } catch (e) {
@@ -517,7 +517,7 @@ export const readEntitiesSectionsTool: McpHandlerDefinition<typeof ReadEntitiesS
         let contentForEntity = '';
 
         // Handle ToC sections
-        const fullToc = getToc(libraryName, FileType.FileTypeEntity, entityName);
+        const fullToc = getToc({library: libraryName, type: FileType.FileTypeEntity, name: entityName});
         for (const tocItem of fullToc) {
           const matchingGlob = sectionGlobsArray.find(glob => normalizeHeading(tocItem.text).includes(normalizeHeading(glob)));
           contentForEntity += `${tocItem.text}\n`;

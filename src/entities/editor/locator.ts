@@ -1,5 +1,47 @@
-import type {FileContent, ContentLineNumber} from "@src/entities/editor/types.ts";
+import type {
+  ContentLineNumber,
+  ContentLocator,
+  FileContent,
+  ResolvedContentLocator,
+  ThingLocator
+} from "@src/entities/editor/types.ts";
 import {checks} from "@src/basics/utils.ts";
+import {readFileContent} from "@src/basics/file-ops.ts";
+
+// 检查 locator 是否在 target 中可唯一定位内容，如果是，返回具备具体行号的 ResolvedContentLocator，否则抛出错误。
+export function resolveContentLocator(target: ThingLocator, locator: ContentLocator, targetRegion?: {
+  searchStartLine: ContentLineNumber;
+  searchEndLine: ContentLineNumber;
+}): ResolvedContentLocator {
+
+  // 先读目标内容
+  const content = readFileContent(target.library, target.type, target.name);
+
+  // 尝试匹配
+  if (locator.type === 'NumbersAndLines') {
+    linesVerifyBeginEnd(content, locator.beginLineNumber, locator.endLineNumber, locator.beginContentLine, locator.endContentLine, targetRegion?.searchStartLine, targetRegion?.searchEndLine);
+    return {
+      target: target,
+      origin: locator,
+      beginLineNumber: locator.beginLineNumber,
+      endLineNumber: locator.endLineNumber,
+      beginContentLine: locator.beginContentLine,
+      endContentLine: locator.endContentLine,
+    };
+  } else if (locator.type === 'Lines') {
+    const result = linesMatchContent(content, locator.contentLines, targetRegion?.searchStartLine, targetRegion?.searchEndLine);
+    return {
+      target: target,
+      origin: locator,
+      beginLineNumber: result,
+      endLineNumber: result + locator.contentLines.length - 1,
+      beginContentLine: locator.contentLines[0]!,
+      endContentLine: locator.contentLines[locator.contentLines.length - 1]!,
+    };
+  } else {
+    throw new Error(`不支持的 ContentLocator：${JSON.stringify(locator)}`);
+  }
+}
 
 // linesVerifyBeginEnd(lines, beginLineNo, endLineNo, beginLine, endLine, searchStartLine?, searchEndLine?) => void
 // 检查给定的行数组中，从 beginLineNo 到 endLineNo 的内容，开头和结尾与 beginLine 和 endLine 匹配。
@@ -39,21 +81,3 @@ export function linesMatchContent(lines: FileContent,
   return matches[0]!;
 }
 
-// linesReplace(lines, beginLineNo, endLineNo, newContentLines) => FileWholeLines
-// 在给定的行数组中，将从 beginLineNo 到 endLineNo 的行替换为 newContentLines，返回新的行数组。
-export function linesReplace(lines: FileContent,
-                             beginLineNo: ContentLineNumber, endLineNo: ContentLineNumber,
-                             newContentLines: string[]): FileContent {
-  const beginIndex = beginLineNo - 1;
-  const endIndex = endLineNo - 1;
-  const before = lines.slice(0, beginIndex);
-  const after = lines.slice(endIndex + 1);
-
-  if (newContentLines.length === 0) {
-    // 删除操作
-    return [...before, ...after] as FileContent;
-  } else {
-    // 替换或插入操作
-    return [...before, ...newContentLines, ...after] as FileContent;
-  }
-}

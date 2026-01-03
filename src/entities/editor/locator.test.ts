@@ -1,9 +1,10 @@
 import {describe, expect, it} from 'bun:test';
 import '@src/tests/setup';
 
-import {linesMatchContent, linesReplace} from "./lines.ts";
+import {linesMatchContent} from "./locator.ts";
 import {MOCK_FILE_CONTENT_LINES_2} from "@src/tests/setup.ts";
 import type {FileContent} from "@src/entities/editor/types.ts";
+import {linesReplace} from "@src/entities/editor/editing.ts";
 
 describe('line operations', () => {
   it('linesMatchContent should find a unique content block', () => {

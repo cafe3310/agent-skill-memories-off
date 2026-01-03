@@ -2,7 +2,7 @@ import {describe, expect, it, type Mock, spyOn, beforeEach, afterEach} from 'bun
 import '@src/tests/setup';
 
 import fs from 'fs';
-import {getToc, matchToc, matchHeadingNoThrow} from "./toc.ts";
+import {matchToc, matchHeadingNoThrow, getToc} from "./toc.ts";
 import shell from "shelljs";
 import * as mockSetup from "@src/tests/setup";
 import {FileType, type FileContent, type LibraryName, type ThingName} from "@src/entities/editor/types.ts";
@@ -28,7 +28,7 @@ describe('TOC operations', () => {
 
   it('getTocList', () => {
 
-    const toc = getToc(MOCK_LIBRARY_NAME, FileType.FileTypeEntity, MOCK_ENTITY_NAME);
+    const toc = getToc({library: MOCK_LIBRARY_NAME, type: FileType.FileTypeEntity, name: MOCK_ENTITY_NAME});
 
     expect(toc.length).toBe(4);
 
@@ -46,13 +46,13 @@ describe('TOC operations', () => {
   });
 
   it('matchToc should find a unique TOC item', () => {
-    const tocItem = matchToc(MOCK_LIBRARY_NAME, FileType.FileTypeEntity, MOCK_ENTITY_NAME, 'Section 1: Details');
+    const tocItem = matchToc({library: MOCK_LIBRARY_NAME, type: FileType.FileTypeEntity, name: MOCK_ENTITY_NAME}, 'Section 1: Details');
     expect(tocItem.lineNumber).toBe(6);
     expect(tocItem.text).toBe('## Section 1: Details');
   });
 
   it('matchToc should throw if TOC item not found', () => {
-    expect(() => matchToc(MOCK_LIBRARY_NAME, FileType.FileTypeEntity, MOCK_ENTITY_NAME, 'Non-Existent Section')).toThrow('中未找到与');
+    expect(() => matchToc({library: MOCK_LIBRARY_NAME, type: FileType.FileTypeEntity, name: MOCK_ENTITY_NAME}, 'Non-Existent Section')).toThrow('中未找到与');
   });
 
   it('matchToc should throw if TOC item is ambiguous', () => {
@@ -67,7 +67,7 @@ describe('TOC operations', () => {
     readSpy.mockImplementation(() => ambiguousTocLines.join('\n'));
 
     // Use the normalized string that causes ambiguity
-    expect(() => matchToc(MOCK_LIBRARY_NAME, FileType.FileTypeEntity, MOCK_ENTITY_NAME, 'section 1 details')).toThrow('发现多个与');
+    expect(() => matchToc({library: MOCK_LIBRARY_NAME, type: FileType.FileTypeEntity, name: MOCK_ENTITY_NAME}, 'section 1 details')).toThrow('发现多个与');
 
     // Restore the spy to the default mock implementation for subsequent tests
     readSpy.mockImplementation(() => MOCK_FILE_CONTENT_LINES.join('\n'));
@@ -75,12 +75,12 @@ describe('TOC operations', () => {
 
   it('matchTocNoThrow should return matches without throwing', () => {
     // Case 1: Unique match
-    let matches = matchHeadingNoThrow(MOCK_LIBRARY_NAME, FileType.FileTypeEntity, MOCK_ENTITY_NAME, 'Section 1: Details');
+    let matches = matchHeadingNoThrow({library: MOCK_LIBRARY_NAME, type: FileType.FileTypeEntity, name: MOCK_ENTITY_NAME}, 'Section 1: Details');
     expect(matches.length).toBe(1);
     expect(matches[0]!.lineNumber).toBe(6);
 
     // Case 2: No match
-    matches = matchHeadingNoThrow(MOCK_LIBRARY_NAME, FileType.FileTypeEntity, MOCK_ENTITY_NAME, 'Non-Existent Section');
+    matches = matchHeadingNoThrow({library: MOCK_LIBRARY_NAME, type: FileType.FileTypeEntity, name: MOCK_ENTITY_NAME}, 'Non-Existent Section');
     expect(matches.length).toBe(0);
 
     // Case 3: Ambiguous match
@@ -90,7 +90,7 @@ describe('TOC operations', () => {
       '## section 1 (details)',
     ] as FileContent;
     readSpy.mockImplementation(() => ambiguousTocLines.join('\n'));
-    matches = matchHeadingNoThrow(MOCK_LIBRARY_NAME, FileType.FileTypeEntity, MOCK_ENTITY_NAME, 'section 1 details');
+    matches = matchHeadingNoThrow({library: MOCK_LIBRARY_NAME, type: FileType.FileTypeEntity, name: MOCK_ENTITY_NAME}, 'section 1 details');
     expect(matches.length).toBe(2);
 
     // Restore spy

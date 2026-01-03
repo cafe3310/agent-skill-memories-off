@@ -65,6 +65,16 @@ export type ContentLocator = {
   contentLines: ContentLineExact[];
 }
 
+// 已解析的内容定位器，包含目标事物定位器和内容定位器的详细信息
+export type ResolvedContentLocator = {
+  target: ThingLocator,
+  origin: ContentLocator,
+  beginLineNumber: ContentLineNumber;
+  endLineNumber: ContentLineNumber;
+  beginContentLine: ContentLineExact;
+  endContentLine: ContentLineExact;
+}
+
 // 整个文件的所有行
 export type FileContent = WeakOpaque<string[], 'FileContent'>;
 
