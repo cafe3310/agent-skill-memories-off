@@ -27,6 +27,7 @@ export default tseslint.config(
       'default-case-last': 'error',
       yoda: 'error',
       strict: 'error',
+      '@typescript-eslint/prefer-interface': false,
       '@typescript-eslint/no-unused-vars': ['warn', {
         args: 'all',
         argsIgnorePattern: '^_',

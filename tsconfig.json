@@ -4,6 +4,9 @@
     "lib": [
       "ESNext"
     ],
+    "paths": {
+      "@src/*": ["src/*"]
+    },
     "target": "ESNext",
     "module": "ESNext",
     "moduleDetection": "force",
