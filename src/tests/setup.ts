@@ -1,9 +1,9 @@
 import path from "node:path";
-import type {FileWholeLines} from "../typings.ts";
+import type {FileContent} from "@src/entities/editor/types.ts";
 
 const projectRoot = path.join(__dirname, '..', '..');
-const tmpDir = path.join(projectRoot, 'tmp');
-const testLibraryPath = path.join(tmpDir, 'test-library');
+export const tmpDir = path.join(projectRoot, 'tmp');
+export const testLibraryPath = path.join(tmpDir, 'test-library');
 const testLibraryName = 'test-library';
 
 process.env = {
@@ -16,7 +16,7 @@ process.env = {
 
 // This is the same mock data used in the test file.
 // It's centralized here to be preloaded.
-export const MOCK_FILE_CONTENT_LINES_1 = [
+export const MOCK_FILE_CONTENT_1 = [
   '# Welcome',
   '',
   'This is the introduction.',
@@ -36,7 +36,7 @@ export const MOCK_FILE_CONTENT_LINES_1 = [
 ];
 
 
-export const MOCK_FILE_CONTENT_LINES_2: FileWholeLines = [
+export const MOCK_FILE_CONTENT_LINES_2: FileContent = [
   '# Welcome',
   '',
   'This is the introduction.',

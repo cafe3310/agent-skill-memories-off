@@ -1,9 +1,9 @@
 import {z} from 'zod';
 import {zodToJsonSchema} from 'zod-to-json-schema';
-import {FileType, type FrontMatterLine, type McpHandlerDefinition} from "../../typings.ts";
-import {readFrontMatterLines, writeFrontMatterLines} from "../editor/front-matter.ts";
-import {FrontMatterPresetKeys} from "../../typings.ts";
-import {normalizeReason} from "../editor/text.ts";
+import {normalizeReason} from "@src/basics/text.ts";
+import type {McpHandlerDefinition} from "@src/features/types.ts";
+import {readFrontMatterLines, writeFrontMatterLines} from "@src/entities/editor/front-matter.ts";
+import {FileType, type FrontMatterLine, FrontMatterPresetKeys} from "@src/entities/editor/types.ts";
 
 const RelationSchema = z.object({
   type: z.string().describe('关系类型'),

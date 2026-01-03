@@ -1,6 +1,6 @@
 import {z} from 'zod';
 import {zodToJsonSchema} from 'zod-to-json-schema';
-import type {McpHandlerDefinition} from "../../typings";
+import type {McpHandlerDefinition} from "@src/features/types.ts";
 import {getLibraryDirPath, generateBackupPath} from '../runtime';
 import shell from 'shelljs';
 

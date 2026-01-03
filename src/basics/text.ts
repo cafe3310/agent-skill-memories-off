@@ -1,89 +1,87 @@
+import type {FrontMatterLine} from "@src/entities/editor/types.ts";
 
-import type {FrontMatterLine} from "../../typings.ts";
-
-// (str) => str
-// 标题标准化函数：去掉首尾空白、多余空白、标点符号，小写化
-export function normalize(str: string): string {
+// 标准化 Heading 以方便进行 Heading 匹配。
+// 标准化包括：去掉首尾空白、多余空白、标点符号，小写化
+export function normalizeHeading(heading: string): string {
   // 1. 多个空白归一化为单个空格
-  str = str.replace(/\s+/g, ' ');
+  heading = heading.replace(/\s+/g, ' ');
 
   // 2. 移除所有标点符号（中文和英文）
-  str = str.replace(/[.,\\/#!$%^&*;:{}=\-_`~()，。、《》？；：‘’“”【】（）…]/g, '');
+  heading = heading.replace(/[.,\\/#!$%^&*;:{}=\-_`~()，。、《》？；：‘’“”【】（）…]/g, '');
 
   // 移除换行符
-  str = str.replace(/[\r\n]/g, '');
+  heading = heading.replace(/[\r\n]/g, '');
 
   // 3. 小写化
-  str = str.toLowerCase();
+  heading = heading.toLowerCase();
 
   // 4. 去掉首尾空白
-  return str.trim();
+  return heading.trim();
 }
 
-// (str) => str
-// 标准化[调用理由]: 限制长度到 80, 去掉首尾空白/连续空白/符号
-export function normalizeReason(str?: string): string {
+// 标准化「调用理由」文本，给 LLM 一个简洁的描述。
+// 限制长度到 80, 去掉首尾空白/连续空白/符号
+export function normalizeReason(reason?: string): string {
 
-  if (!str) {
+  if (!reason) {
     return '';
   }
 
   // 1. 多个空白归一化为单个空格
-  str = str.replace(/\s+/g, ' ');
+  reason = reason.replace(/\s+/g, ' ');
 
   // 2. 移除所有符号（中文和英文）
-  str = str.replace(/[.,\\/#!$%^&*;:{}=\-_`~()，。、《》？；：‘’“”【】（）…]/g, '');
+  reason = reason.replace(/[.,\\/#!$%^&*;:{}=\-_`~()，。、《》？；：‘’“”【】（）…]/g, '');
 
   // 3. 移除换行符
-  str = str.replace(/[\r\n]/g, '');
+  reason = reason.replace(/[\r\n]/g, '');
 
   // 4. trim
-  str = str.trim();
+  reason = reason.trim();
 
   // 5. 限制长度到 80, 超过补 '…'
-  if (str.length > 80) {
-    str = str.slice(0, 78) + '…';
+  if (reason.length > 80) {
+    reason = reason.slice(0, 78) + '…';
   }
 
-  return str;
+  return reason;
 }
 
-// (str) => str
-// YAML Key 标准化函数：去掉首尾空白、多余空白、标点符号，让结果可以被安全地用作 YAML Key 和 Value
-function normalizeYamlKey(str: string): string {
-  // 1. 多个空白归一化为单个空格
-  str = str.replace(/\s+/g, ' ');
+// 标准化 YAML Key：去掉首尾空白、多余空白、标点符号，让结果可以被安全地用作 Frontmatter 的 Key。
+export function normalizeYamlKey(yamlKey: string): string {
+  // 1. 替换掉所有 yaml 关键字符号
+  yamlKey = yamlKey.replace(/[:\-?[\]{}#,&*!|>'"%@`]/g, '');
 
-  // 3. 替换掉所有 yaml 关键字符号
-  str = str.replace(/[:\-?[\]{}#,&*!|>'"%@`]/g, '');
+  // 2. 多个空白归一化为单个空格
+  yamlKey = yamlKey.replace(/\s+/g, ' ');
 
-  // 2. 移除换行符
-  str = str.replace(/[\r\n]/g, '');
+  // 3. 移除换行符
+  yamlKey = yamlKey.replace(/[\r\n]/g, '');
 
   // 4. 小写化
-  str = str.toLowerCase();
+  yamlKey = yamlKey.toLowerCase();
 
   // 5. 去掉首尾空白
-  return str.trim();
+  return yamlKey.trim();
 }
 
-export function normalizeFrontMatterLine(str: FrontMatterLine): FrontMatterLine {
+// 标准化 Frontmatter 行：对键进行 normalizeYamlAttr，值保持不变
+export function normalizeFrontMatterLine(frontmatterLine: FrontMatterLine): FrontMatterLine {
   // 从第一个 ':' 处分割键值对，然后分别 normalize 键和值
   // 如果没有 ':'，则整个行作为键，值为空字符串
-  const index = str.indexOf(':');
+  const index = frontmatterLine.indexOf(':');
   if (index === -1) {
-    return normalizeYamlKey(str);
+    return normalizeYamlKey(frontmatterLine);
   } else {
-    const key = str.slice(0, index).trim();
-    const value = str.slice(index + 1).trim();
+    const key = frontmatterLine.slice(0, index).trim();
+    const value = frontmatterLine.slice(index + 1).trim();
     return `${normalizeYamlKey(key)}: ${value}`;
   }
 }
 
-// (str) => str
-// 普通文本转换成标题函数：先标准化，再加上 #（默认 2 级）
-export function toTocLine(str: string, level = 2): string {
-  const normalized = normalize(str);
+// 将任何文本转换成 Heading：先标准化，再加上 #（默认 2 级）
+export function toHeadingLine(text: string, level = 2): string {
+  const normalized = normalizeHeading(text);
   const hashes = '#'.repeat(level);
   return `${hashes} ${normalized}`;
 }

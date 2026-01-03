@@ -1,10 +1,15 @@
 import {z} from 'zod';
 import {zodToJsonSchema} from 'zod-to-json-schema';
-import {findEntitiesByMetadataQuery, findEntityByFrontMatterRegex, findEntityByNonFrontMatterRegex, listAllEntityTypesWithCounts} from "../retrieval/retrieval.ts";
-import {FileType, FrontMatterPresetKeys, type McpHandlerDefinition} from "../../typings.ts";
-import {globToRegex} from "../../utils.ts";
-import {splitFileIntoSections} from "../editor/editing.ts";
-import {normalizeReason} from "../editor/text.ts";
+import {FileType, FrontMatterPresetKeys} from "@src/entities/editor/types.ts";
+import type {McpHandlerDefinition} from "@src/features/types.ts";
+import {
+  findEntitiesByMetadataQuery,
+  findEntityByNonFrontMatterRegex,
+  listAllEntityTypesWithCounts
+} from "@src/entities/retrieval/retrieval.ts";
+import {normalizeReason} from "@src/basics/text.ts";
+import {globToRegex} from "@src/basics/utils.ts";
+import {splitFileIntoSections} from "@src/entities/editor/editing.ts";
 
 // --- Tool: find_entities_by_metadata ---
 
@@ -192,7 +197,7 @@ export const searchInContentsTool: McpHandlerDefinition<typeof SearchInContentsI
       let toc = '';
       for (const section of sections) {
         if (section.content.includes(result.line)) {
-          toc = section.tocItem.tocLineContent;
+          toc = section.heading.tocLineContent;
           break;
         }
       }

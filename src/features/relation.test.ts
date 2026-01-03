@@ -1,14 +1,9 @@
 import {afterAll, beforeAll, describe, expect, test} from 'bun:test';
 import type {ChildProcess} from 'node:child_process';
-import {
-  callMcp,
-  expectFileTotalLines,
-  killMcp,
-  resetLibAndBootMcp,
-  tempLibraryPath,
-} from '../../test/e2e/util.test';
+
 import path from 'path';
 import fs from 'fs';
+import {callMcp, expectFileTotalLines, killMcp, resetLibAndBootMcp, tempLibraryPath} from "@src/tests/e2e/util.test.ts";
 
 describe('E2E Relation Tools Lifecycle', () => {
   let serverProcess: ChildProcess;

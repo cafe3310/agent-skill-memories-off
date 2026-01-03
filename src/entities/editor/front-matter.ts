@@ -1,6 +1,5 @@
-import {FrontMatterPresetKeys, type LibraryName, type ThingName} from "../../typings.ts";
-import {readFileLines, writeFileLines} from "./file-ops.ts";
-import {FileType} from "../../typings.ts";
+import {readFileContent, writeFileContent} from "@src/basics/file-ops.ts";
+import {FileType, FrontMatterPresetKeys, type LibraryName, type ThingName} from "@src/entities/editor/types.ts";
 
 export function locateFrontMatter(lines: string[]): { startLineNumber: number; endLineNumber: number } | null {
   if (lines[0]?.trim() !== '---') {
@@ -59,7 +58,7 @@ export function mergeFrontmatter(targetLines: string[], sourceLines: string[]): 
 }
 
 export function readFrontMatterLines(libraryName: LibraryName, fileType: FileType, name: ThingName): string[] | null {
-  const lines = readFileLines(libraryName, fileType, name);
+  const lines = readFileContent(libraryName, fileType, name);
   const frontMatterEndIndex = lines.findIndex((line, index) => index > 0 && line.trim() === '---');
 
   if (frontMatterEndIndex === -1 || !lines[0]?.startsWith('---')) {
@@ -70,7 +69,7 @@ export function readFrontMatterLines(libraryName: LibraryName, fileType: FileTyp
 }
 
 export function writeFrontMatterLines(libraryName: LibraryName, fileType: FileType, name: ThingName, frontMatterLines: string[]): void {
-  const lines = readFileLines(libraryName, fileType, name);
+  const lines = readFileContent(libraryName, fileType, name);
   const frontMatterEndIndex = lines.findIndex((line, index) => index > 0 && line.trim() === '---');
 
   const hasFrontMatter = frontMatterEndIndex !== -1 && lines[0]?.startsWith('---');
@@ -89,5 +88,5 @@ export function writeFrontMatterLines(libraryName: LibraryName, fileType: FileTy
     ...contentLines,
   ];
 
-  writeFileLines(libraryName, fileType, name, newLines);
+  writeFileContent(libraryName, fileType, name, newLines);
 }

@@ -1,15 +1,15 @@
 import {describe, expect, it, type Mock, spyOn, beforeEach, afterEach} from 'bun:test';
-import '../../test/setup';
+import '@src/tests/setup';
 
-import {type LibraryName, type FileWholeLines, type ThingName, FileType} from '../../typings';
 import fs from 'fs';
-import * as mockSetup from "../../test/setup";
-import {getTocList, matchToc, matchTocNoThrow} from "./toc.ts";
+import {getToc, matchToc, matchHeadingNoThrow} from "./toc.ts";
 import shell from "shelljs";
+import * as mockSetup from "@src/tests/setup";
+import {FileType, type FileContent, type LibraryName, type ThingName} from "@src/entities/editor/types.ts";
 
 const MOCK_LIBRARY_NAME: LibraryName = mockSetup.MOCK_LIBRARY_NAME;
 const MOCK_ENTITY_NAME: ThingName = mockSetup.MOCK_ENTITY_NAME;
-const MOCK_FILE_CONTENT_LINES: FileWholeLines = mockSetup.MOCK_FILE_CONTENT_LINES_1;
+const MOCK_FILE_CONTENT_LINES: FileContent = mockSetup.MOCK_FILE_CONTENT_1;
 
 describe('TOC operations', () => {
   const readSpy = spyOn(fs, 'readFileSync') as Mock<(...args: unknown[]) => string>;
@@ -28,27 +28,27 @@ describe('TOC operations', () => {
 
   it('getTocList', () => {
 
-    const toc = getTocList(MOCK_LIBRARY_NAME, FileType.FileTypeEntity, MOCK_ENTITY_NAME);
+    const toc = getToc(MOCK_LIBRARY_NAME, FileType.FileTypeEntity, MOCK_ENTITY_NAME);
 
     expect(toc.length).toBe(4);
 
-    expect(toc[0]!.tocLineContent).toBe('# Welcome');
+    expect(toc[0]!.text).toBe('# Welcome');
     expect(toc[0]!.lineNumber).toBe(1);
 
-    expect(toc[1]!.tocLineContent.startsWith('## Section 1')).toBe(true);
+    expect(toc[1]!.text.startsWith('## Section 1')).toBe(true);
     expect(toc[1]!.lineNumber).toBe(6);
 
-    expect(toc[2]!.tocLineContent.startsWith('## Section 2')).toBe(true);
+    expect(toc[2]!.text.startsWith('## Section 2')).toBe(true);
     expect(toc[2]!.lineNumber).toBe(12);
 
-    expect(toc[3]!.tocLineContent.startsWith('## Section 3')).toBe(true);
+    expect(toc[3]!.text.startsWith('## Section 3')).toBe(true);
     expect(toc[3]!.lineNumber).toBe(15);
   });
 
   it('matchToc should find a unique TOC item', () => {
     const tocItem = matchToc(MOCK_LIBRARY_NAME, FileType.FileTypeEntity, MOCK_ENTITY_NAME, 'Section 1: Details');
     expect(tocItem.lineNumber).toBe(6);
-    expect(tocItem.tocLineContent).toBe('## Section 1: Details');
+    expect(tocItem.text).toBe('## Section 1: Details');
   });
 
   it('matchToc should throw if TOC item not found', () => {
@@ -62,7 +62,7 @@ describe('TOC operations', () => {
       '## Section 1: Details', // normalizes to 'section 1 details'
       'Some content',
       '## section 1 (details)', // also normalizes to 'section 1 details'
-    ] as FileWholeLines;
+    ] as FileContent;
 
     readSpy.mockImplementation(() => ambiguousTocLines.join('\n'));
 
@@ -75,12 +75,12 @@ describe('TOC operations', () => {
 
   it('matchTocNoThrow should return matches without throwing', () => {
     // Case 1: Unique match
-    let matches = matchTocNoThrow(MOCK_LIBRARY_NAME, FileType.FileTypeEntity, MOCK_ENTITY_NAME, 'Section 1: Details');
+    let matches = matchHeadingNoThrow(MOCK_LIBRARY_NAME, FileType.FileTypeEntity, MOCK_ENTITY_NAME, 'Section 1: Details');
     expect(matches.length).toBe(1);
     expect(matches[0]!.lineNumber).toBe(6);
 
     // Case 2: No match
-    matches = matchTocNoThrow(MOCK_LIBRARY_NAME, FileType.FileTypeEntity, MOCK_ENTITY_NAME, 'Non-Existent Section');
+    matches = matchHeadingNoThrow(MOCK_LIBRARY_NAME, FileType.FileTypeEntity, MOCK_ENTITY_NAME, 'Non-Existent Section');
     expect(matches.length).toBe(0);
 
     // Case 3: Ambiguous match
@@ -88,9 +88,9 @@ describe('TOC operations', () => {
       '# Welcome',
       '## Section 1: Details',
       '## section 1 (details)',
-    ] as FileWholeLines;
+    ] as FileContent;
     readSpy.mockImplementation(() => ambiguousTocLines.join('\n'));
-    matches = matchTocNoThrow(MOCK_LIBRARY_NAME, FileType.FileTypeEntity, MOCK_ENTITY_NAME, 'section 1 details');
+    matches = matchHeadingNoThrow(MOCK_LIBRARY_NAME, FileType.FileTypeEntity, MOCK_ENTITY_NAME, 'section 1 details');
     expect(matches.length).toBe(2);
 
     // Restore spy

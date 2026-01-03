@@ -2,20 +2,30 @@ import {z, ZodString} from 'zod';
 import {zodToJsonSchema} from 'zod-to-json-schema';
 import {
   FileType,
-  type FileWholeLines,
-  type FrontMatterLine, FrontMatterPresetKeys, type McpHandlerDefinition
-} from "../../typings";
-import yaml from 'yaml';
+  type FileContent,
+  type FrontMatterLine,
+  FrontMatterPresetKeys
+} from "@src/entities/editor/types.ts";
 import shell from 'shelljs';
 import path from 'path';
-import {createFile, moveFileToTrash, readFileLines, renameFile, writeFileLines} from "../editor/file-ops.ts";
-import {getTocList} from "../editor/toc.ts";
-import {readFrontMatterLines, writeFrontMatterLines, mergeFrontmatter} from "../editor/front-matter.ts";
-import {splitFileIntoSections, Section} from "../editor/editing.ts";
-import {add, addInToc, deleteInToc, readSectionContent, replaceSection} from "../editor/editing.ts";
+import {createFile, trashFile, readFileContent, renameFile, writeFileContent} from "@src/basics/file-ops.ts";
+import {getToc} from "@src/entities/editor/toc.ts";
+import {mergeFrontmatter, readFrontMatterLines, writeFrontMatterLines} from "@src/entities/editor/front-matter.ts";
+import {
+  addContentToThing,
+  addContentToSection,
+  deleteInToc,
+  readSectionContent,
+  replaceSection, type Section,
+  splitFileIntoSections
+} from "@src/entities/editor/editing.ts";
+
+
 import {getEntityDirPath} from "../runtime.ts";
-import {normalize, normalizeReason} from "../editor/text.ts";
-import {findEntityByNameGlob} from "../retrieval/retrieval.ts";
+
+import type {McpHandlerDefinition} from "@src/features/types.ts";
+import {normalizeHeading, normalizeReason} from "@src/basics/text.ts";
+import {findEntityByNameGlob} from "@src/entities/retrieval/retrieval.ts";
 
 // Schema for a single entity
 export const EntitySchema = z.object({
@@ -76,7 +86,7 @@ export const addEntitiesTool: McpHandlerDefinition<typeof AddEntitiesInputSchema
     for (const entity of entities) {
       try {
         const { name, content, type, aliases, ...customFields } = entity;
-        createFile(libraryName, FileType.FileTypeEntity, name, [] as FileWholeLines);
+        createFile(libraryName, FileType.FileTypeEntity, name, [] as FileContent);
         const frontMatter: FrontMatterLine[] = [];
         if (type) {
           frontMatter.push(`${FrontMatterPresetKeys.EntityType}: ${type}`);
@@ -94,7 +104,7 @@ export const addEntitiesTool: McpHandlerDefinition<typeof AddEntitiesInputSchema
           writeFrontMatterLines(libraryName, FileType.FileTypeEntity, name, frontMatter);
         }
         if (content) {
-          add(libraryName, FileType.FileTypeEntity, name, content.split('\n'));
+          addContentToThing(libraryName, FileType.FileTypeEntity, name, content.split('\n'));
         }
         createdNames.push(entity.name);
       } catch (error) {
@@ -160,7 +170,7 @@ export const deleteEntitiesTool: McpHandlerDefinition<typeof DeleteEntitiesInput
     const failedEntityNames: {name: string, reason: string}[] = [];
     for (const entityName of entityNamesArray) {
       try {
-        moveFileToTrash(libraryName, FileType.FileTypeEntity, entityName);
+        trashFile(libraryName, FileType.FileTypeEntity, entityName);
         deletedEntityNames.push(entityName);
       } catch (error) {
         failedEntityNames.push({name: entityName, reason: (error as Error).message});
@@ -222,7 +232,7 @@ export const readEntitiesTool: McpHandlerDefinition<typeof ReadEntitiesInputSche
 
     for (const entityName of entityNames) {
       try {
-        const lines = readFileLines(libraryName, FileType.FileTypeEntity, entityName);
+        const lines = readFileContent(libraryName, FileType.FileTypeEntity, entityName);
         const content = lines.join('\n');
         successEntityNames.push({name: entityName, content: content});
       } catch (error) {
@@ -353,8 +363,8 @@ export const getEntitiesTocTool: McpHandlerDefinition<typeof GetEntitiesTocInput
 
     for (const entityName of entityNamesArray) {
       try {
-        const tocList = getTocList(libraryName, FileType.FileTypeEntity, entityName);
-        const toc = tocList.map(item => item.tocLineContent);
+        const tocList = getToc(libraryName, FileType.FileTypeEntity, entityName);
+        const toc = tocList.map(item => item.text);
         successResults.push({name: entityName, toc});
       } catch (e) {
         failedResults.push({name: entityName, reason: (e as Error).message});
@@ -436,11 +446,11 @@ export const renameEntityTool: McpHandlerDefinition<typeof RenameEntityInputSche
       const affectedEntityNames = affectedFiles.map(file => path.basename(file, '.md'));
 
       for (const entityName of affectedEntityNames) {
-        const lines = readFileLines(libraryName, FileType.FileTypeEntity, entityName);
+        const lines = readFileContent(libraryName, FileType.FileTypeEntity, entityName);
         const updatedLines = lines.map(line =>
           line.includes(`relation to: ${oldName}`) ? line.replace(`relation to: ${oldName}`, `relation to: ${newName}`) : line
         );
-        writeFileLines(libraryName, FileType.FileTypeEntity, entityName, updatedLines as FileWholeLines);
+        writeFileContent(libraryName, FileType.FileTypeEntity, entityName, updatedLines as FileContent);
       }
 
       let message = `旧名字: ${oldName} --> 新名字: ${newName}`;
@@ -507,13 +517,13 @@ export const readEntitiesSectionsTool: McpHandlerDefinition<typeof ReadEntitiesS
         let contentForEntity = '';
 
         // Handle ToC sections
-        const fullToc = getTocList(libraryName, FileType.FileTypeEntity, entityName);
+        const fullToc = getToc(libraryName, FileType.FileTypeEntity, entityName);
         for (const tocItem of fullToc) {
-          const matchingGlob = sectionGlobsArray.find(glob => normalize(tocItem.tocLineContent).includes(normalize(glob)));
-          contentForEntity += `${tocItem.tocLineContent}\n`;
+          const matchingGlob = sectionGlobsArray.find(glob => normalizeHeading(tocItem.text).includes(normalizeHeading(glob)));
+          contentForEntity += `${tocItem.text}\n`;
           if (matchingGlob) {
-            matchedSections.push(normalize(tocItem.tocLineContent));
-            const sectionContent = readSectionContent(libraryName, FileType.FileTypeEntity, entityName, tocItem.tocLineContent);
+            matchedSections.push(normalizeHeading(tocItem.text));
+            const sectionContent = readSectionContent(libraryName, FileType.FileTypeEntity, entityName, tocItem.text);
             contentForEntity += `${sectionContent?.join('\n') || ''}\n`;
           } else {
             contentForEntity += `...\n`;
@@ -585,7 +595,7 @@ export const addEntityContentTool: McpHandlerDefinition<typeof AddEntityContentI
   handler: (args: unknown, name) => {
     const { libraryName, entityName, inSection, newContent, reason } = AddEntityContentInputSchema.parse(args);
     try {
-      addInToc(libraryName, FileType.FileTypeEntity, entityName, inSection, newContent.split('\n'));
+      addContentToSection(libraryName, FileType.FileTypeEntity, entityName, inSection, newContent.split('\n'));
       const message = `Content added to section '${inSection}' in entity '${entityName}'.`;
       return `<${name} reason="${normalizeReason(reason)}" result="success">\n${message}\n</${name}>`;
     } catch (e) {
@@ -758,7 +768,7 @@ export const mergeEntitiesTool: McpHandlerDefinition<typeof MergeEntitiesInputSc
 
       const targetSectionMap = new Map<string, Section>();
       for (const section of targetSections) {
-        targetSectionMap.set(normalize(section.tocItem.tocLineContent), section);
+        targetSectionMap.set(normalizeHeading(section.heading.tocLineContent), section);
       }
 
       const newSections: Section[] = [];
@@ -766,7 +776,7 @@ export const mergeEntitiesTool: McpHandlerDefinition<typeof MergeEntitiesInputSc
 
       // 3. Merge matching sections
       for (const sourceSection of allSourceSections) {
-        const normalizedSourceToc = normalize(sourceSection.tocItem.tocLineContent);
+        const normalizedSourceToc = normalizeHeading(sourceSection.tocItem.tocLineContent);
         const targetSection = targetSectionMap.get(normalizedSourceToc);
         if (targetSection) {
           targetSection.content.push(...sourceSection.content);
@@ -778,7 +788,7 @@ export const mergeEntitiesTool: McpHandlerDefinition<typeof MergeEntitiesInputSc
       for (const sourceSection of allSourceSections) {
         if (!processedSourceSections.has(sourceSection)) {
           // Check if a new section with the same name already exists
-          const existingNewSection = newSections.find(s => normalize(s.tocItem.tocLineContent) === normalize(sourceSection.tocItem.tocLineContent));
+          const existingNewSection = newSections.find(s => normalizeHeading(s.heading.tocLineContent) === normalizeHeading(sourceSection.tocItem.tocLineContent));
           if (existingNewSection) {
             existingNewSection.content.push(...sourceSection.content);
           } else {
@@ -802,20 +812,20 @@ export const mergeEntitiesTool: McpHandlerDefinition<typeof MergeEntitiesInputSc
       // Add sections, normalizing all headings to '##'
       for (const section of targetSections) {
         // Normalize heading to '##'
-        const normalizedHeading = `## ${normalize(section.tocItem.tocLineContent)}`;
+        const normalizedHeading = `## ${normalizeHeading(section.heading.tocLineContent)}`;
         finalContentLines.push(normalizedHeading);
         finalContentLines.push(...section.content);
       }
 
-      writeFileLines(libraryName, FileType.FileTypeEntity, targetName, finalContentLines);
+      writeFileContent(libraryName, FileType.FileTypeEntity, targetName, finalContentLines);
 
       // 6. Delete source files
       for (const sourceName of sourceNames) {
-        moveFileToTrash(libraryName, FileType.FileTypeEntity, sourceName);
+        trashFile(libraryName, FileType.FileTypeEntity, sourceName);
       }
 
       // 7. Return the merged content
-      const mergedFileContent = readFileLines(libraryName, FileType.FileTypeEntity, targetName).join('\n');
+      const mergedFileContent = readFileContent(libraryName, FileType.FileTypeEntity, targetName).join('\n');
       return `<${name} reason=${normalizeReason(reason)} SUCCESS>\n${mergedFileContent}\n</${name}>`;
 
     } catch (e) {

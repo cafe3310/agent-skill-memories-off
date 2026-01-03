@@ -15,12 +15,12 @@ export function checks(condition: boolean, message: string): asserts condition {
 
 // 对象属性和类型断言
 // 不满足则抛异常并记录日志
-export function checkObjHas<T>(x: unknown, key: string, valueType: string): asserts x is T {
+export function checkObjHas<T>(obj: unknown, key: string, valueType: string): asserts obj is T {
   if (
-    typeof x !== "object" ||
-    x === null ||
-    !(key in x) ||
-    typeof (x as Record<string, unknown>)[key] !== valueType
+    typeof obj !== "object" ||
+    obj === null ||
+    !(key in obj) ||
+    typeof (obj as Record<string, unknown>)[key] !== valueType
   ) {
     const err = new Error(`Type check failed: ${key} is not ${valueType}`);
     logfileE('checkObjHas', err);
@@ -75,11 +75,11 @@ export const ENV_VARS = {
 }
 
 // 获取环境变量，未设置则返回默认值并记录
-export function getEnvVar(key: string, def: string): string {
+export function getEnvVar(key: string, defaultVal: string): string {
   const val = process.env[key];
   if (val === undefined) {
-    logfileW('utils', `Env ${key} not set, using default: ${def}`);
-    return def;
+    logfileW('utils', `Env ${key} not set, using default: ${defaultVal}`);
+    return defaultVal;
   }
   logfile('utils', `Env ${key}: ${val}`);
   return val;

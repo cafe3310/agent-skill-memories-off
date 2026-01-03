@@ -1,9 +1,16 @@
-import {type FileAbsolutePath, FileType, type FileWholeLines, type LibraryName, type ThingName} from "../../typings.ts";
-import {checks} from "../../utils.ts";
 import {generateEntityTrashPath, getEntityFilePath, getJourneyFilePath, getMetaFilePath} from "../runtime.ts";
 import shell from "shelljs";
 import fs from "fs";
+import {
+  type FileAbsolutePath,
+  FileType,
+  type FileContent,
+  type LibraryName,
+  type ThingName
+} from "@src/entities/editor/types.ts";
+import {checks} from "@src/basics/utils.ts";
 
+// 获取指定 Library 中特定 Thing 的绝对路径。
 export function pathForFile(libraryName: LibraryName, fileType: FileType, thingName?: string): FileAbsolutePath {
   switch (fileType) {
   case FileType.FileTypeEntity:
@@ -17,40 +24,42 @@ export function pathForFile(libraryName: LibraryName, fileType: FileType, thingN
   default:
     throw new Error(`未知的文件类型`);
   }
-} // (LibraryName, FileType, ThingName, FileWholeLines) => void
-// (LibraryName, FileRelativePath) => FileWholeLines
-// 读取文件的所有行
-export function readFileLines(libraryName: LibraryName, fileType: FileType, name: ThingName): FileWholeLines {
+}
+
+// 读指定 Library 中特定 Thing 的所有内容。
+export function readFileContent(libraryName: LibraryName, fileType: FileType, name: ThingName): FileContent {
   const fullPath = pathForFile(libraryName, fileType, name);
   checks(shell.test('-f', fullPath), `无法找到文件: ${fullPath}`);
   const fileContent = fs.readFileSync(fullPath, 'utf-8');
   if (fileContent === '') {
-    return [] as FileWholeLines;
+    return [] as FileContent;
   }
-  const lines = fileContent.split('\n');
-  return lines as FileWholeLines;
+  const content = fileContent.split('\n');
+  return content as FileContent;
 }
 
-// 写入文件的所有行
-export function writeFileLines(libraryName: LibraryName, fileType: FileType, name: ThingName, lines: FileWholeLines): void {
+// 写指定 Library 中特定 Thing，覆盖其内容。
+export function writeFileContent(libraryName: LibraryName, fileType: FileType, name: ThingName, content: FileContent): void {
   const fullPath = pathForFile(libraryName, fileType, name);
-  const content = lines.join('\n');
-  fs.writeFileSync(fullPath, content, 'utf-8');
+  fs.writeFileSync(fullPath, content.join('\n'), 'utf-8');
 }
 
-export function moveFileToTrash(libraryName: LibraryName, fileType: FileType, name: ThingName): void {
+// 删除指定 Library 中特定 Thing 的文件，移动到回收站。
+export function trashFile(libraryName: LibraryName, fileType: FileType, name: ThingName): void {
   const fullPath = pathForFile(libraryName, fileType, name);
   checks(shell.test('-f', fullPath), `无法找到文件: ${fullPath}`);
   const filePathInTrash = generateEntityTrashPath(libraryName, name);
   shell.mv(fullPath, filePathInTrash);
 }
 
-export function createFile(libraryName: LibraryName, fileType: FileType, name: ThingName, content: FileWholeLines): void {
+// 创建指定 Library 中特定 Thing 的文件，内容为 content；如果文件已存在则失败。
+export function createFile(libraryName: LibraryName, fileType: FileType, name: ThingName, content: FileContent): void {
   const fullPath = pathForFile(libraryName, fileType, name);
   checks(!shell.test('-e', fullPath), `文件已存在，无法创建: ${fullPath}`);
-  writeFileLines(libraryName, fileType, name, content);
+  writeFileContent(libraryName, fileType, name, content);
 }
 
+// 重命名指定 Library 中特定 Thing 的文件，从 oldName 改为 newName。
 export function renameFile(libraryName: LibraryName, fileType: FileType, oldName: ThingName, newName: ThingName): void {
   const oldFullPath = pathForFile(libraryName, fileType, oldName);
   const newFullPath = pathForFile(libraryName, fileType, newName);
@@ -59,6 +68,7 @@ export function renameFile(libraryName: LibraryName, fileType: FileType, oldName
   shell.mv(oldFullPath, newFullPath);
 }
 
+// 检查指定 Library 中特定 Thing 的文件是否存在。
 export function checkFileExists(libraryName: LibraryName, fileType: FileType, name: ThingName): boolean {
   const fullPath = pathForFile(libraryName, fileType, name);
   return shell.test('-f', fullPath);

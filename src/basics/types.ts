@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/consistent-type-definitions,@typescript-eslint/consistent-indexed-object-style */
-// noinspection JSUnusedLocalSymbols
+// noinspection JSUnusedGlobalSymbols
 
 // region 一些 Typing magic
 

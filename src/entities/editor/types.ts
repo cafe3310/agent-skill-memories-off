@@ -1,7 +1,4 @@
-
-import {z} from "zod";
-import {type ZodTypeAny} from "zod";
-import type {WeakOpaque} from "../basics/typings.ts";
+import type {WeakOpaque} from "@src/basics/types.ts";
 
 // region 命名和路径
 
@@ -31,6 +28,13 @@ export type FileAbsolutePath = WeakOpaque<string, 'FileAbsolutePath'>;
 // 如 "/home/user/docs/MyProjectDocs/entities"
 export type FolderAbsolutePath = WeakOpaque<string, 'FolderAbsolutePath'>;
 
+// 在仓库中定位某个文件的结构化描述
+export type ThingLocator = {
+  library: LibraryName;
+  type: FileType;
+  name: ThingName;
+}
+
 // endregion
 
 // region content
@@ -39,64 +43,65 @@ export type FolderAbsolutePath = WeakOpaque<string, 'FolderAbsolutePath'>;
 
 // 模糊匹配的内容块，基于行。
 // 如 "this is the beginning of the section*" -- 表达「可匹配任何对应内容的块」的 filter
-export type ContentGlobLine = WeakOpaque<string, 'ContentGlobLine'>;
+export type ContentLineGlob = WeakOpaque<string, 'ContentLinesGlob'>;
 
 // 精确匹配的内容块，单行。
 // 如 "  - This is the beginning of the section." -- 表达「只能匹配对应内容的块」的 filter
-export type ContentExactLine = WeakOpaque<string, 'ContentExactLine'>;
+export type ContentLineExact = WeakOpaque<string, 'ContentLinesExact'>;
 
 // 行号，从 1 开始计数
-export type LineNumber = WeakOpaque<number, 'LineNumber'>;
+export type ContentLineNumber = WeakOpaque<number, 'ContentLineNumber'>;
 
 // 用于定位文件中某个位置的内容上下文块。
 // 可以是基于行号的范围，或者是基于内容的精确块。
 export type ContentLocator = {
   type: 'NumbersAndLines'
-  beginLineNumber: LineNumber;
-  endLineNumber: LineNumber;
-  beginContentLine: ContentExactLine;
-  endContentLine: ContentExactLine;
+  beginLineNumber: ContentLineNumber;
+  endLineNumber: ContentLineNumber;
+  beginContentLine: ContentLineExact;
+  endContentLine: ContentLineExact;
 } | {
   type: 'Lines'
-  contentLines: ContentExactLine[];
+  contentLines: ContentLineExact[];
 }
+
 // 整个文件的所有行
-export type FileWholeLines = WeakOpaque<string[], 'FileWholeLines'>;
+export type FileContent = WeakOpaque<string[], 'FileContent'>;
 
 // endregion
 
-// region toc
+// region Heading 和 Toc
 
 // 模糊匹配的章节标题。
 // 如 "installation guide"
-export type TocGlob = WeakOpaque<string, 'TocGlob'>;
+export type HeadingGlob = WeakOpaque<string, 'HeadingGlob'>;
 
 // 精确匹配的章节标题行。
 // 如 "## Installation (Guide):"
-export type TocExactLine = WeakOpaque<string, 'TocExactLine'>;
+export type HeadingExact = WeakOpaque<string, 'HeadingExact'>;
 
-// TOCLevel，从 1 开始计数
+// 标题层级，从 1 开始计数
 // 1 - #
 // 2 - ##
 // ...
 // 6 - ######
-export type TocLevel = WeakOpaque<number, 'TocLevel'>;
+export type HeadingLevel = WeakOpaque<number, 'HeadingLevel'>;
 
 // 一个 Toc 行在文件中的结构化描述
-export type TocItem = {
-  level: TocLevel;
-  lineNumber: LineNumber;
-  tocLineContent: TocExactLine;
+export type Heading = {
+  level: HeadingLevel;
+  lineNumber: ContentLineNumber;
+  text: HeadingExact;
 }
 
 // 一个文件的所有目录行列表
-// TocList, Array of {level, lineNumber, tocLineContent}
+// TocList, Array of {level, lineNumber, text}
 // 如 [
-//   { level: 1, lineNumber: 3, tocLineContent: "# Installation" },
-//   { level: 2, lineNumber: 10, tocLineContent: "## Step 1" },
+//   { level: 1, lineNumber: 3, text: "# Installation" },
+//   { level: 2, lineNumber: 10, text: "## Step 1" },
 //   ...
 // ]
-export type TocList = TocItem[];
+export type Toc = Heading[];
 
 // endregion
 // region Front Matter
@@ -106,8 +111,12 @@ export type TocList = TocItem[];
 export type FrontMatterLine = WeakOpaque<string, 'FrontMatterLine'>;
 
 // 一个 frontmatter 项目的结构化描述
-export type FrontMatterItem = {name: string, value: string};
+export type FrontMatterEntry = {name: string, value: string};
 
+// 整个 frontmatter 的结构化描述
+export type FrontMatter = FrontMatterEntry[];
+
+// 预定义的 frontmatter key 列表
 export const enum FrontMatterPresetKeys {
   // 例子：'entity type: Person'
   EntityType = 'entity type',

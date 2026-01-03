@@ -1,17 +1,17 @@
-import * as mockSetup from "../../test/setup";
+import * as mockSetup from "@src/tests/setup";
 import {describe, expect, it, type Mock, spyOn, beforeEach, afterEach} from 'bun:test';
 
 import {
   type ContentLocator,
   type LibraryName,
-  type FileWholeLines,
+  type FileContent,
   FileType,
   type ThingName
-} from '../../typings';
+} from "@src/entities/editor/types.ts";
 import fs from 'fs';
 import {
-  add,
-  addInToc,
+  addContentToThing,
+  addContentToSection,
   deleteContent,
   deleteInToc,
   insertAfter,
@@ -23,7 +23,7 @@ import shell from "shelljs";
 
 const MOCK_LIBRARY_NAME: LibraryName = mockSetup.MOCK_LIBRARY_NAME;
 const MOCK_ENTITY_NAME: ThingName = mockSetup.MOCK_ENTITY_NAME;
-const MOCK_FILE_CONTENT_LINES: FileWholeLines = mockSetup.MOCK_FILE_CONTENT_LINES_1;
+const MOCK_FILE_CONTENT_LINES: FileContent = mockSetup.MOCK_FILE_CONTENT_1;
 
 describe('file content modifications', () => {
   const shellTestSpy = spyOn(shell, 'test') as Mock<(...args: unknown[]) => boolean>;
@@ -54,7 +54,7 @@ describe('file content modifications', () => {
 
   it('add should append content to the end of the file', () => {
     const contentToAdd = ['// New final line'];
-    add(MOCK_LIBRARY_NAME, FileType.FileTypeEntity, MOCK_ENTITY_NAME, contentToAdd);
+    addContentToThing(MOCK_LIBRARY_NAME, FileType.FileTypeEntity, MOCK_ENTITY_NAME, contentToAdd);
 
     expect(fs.writeFileSync).toHaveBeenCalledTimes(1);
     const writtenContent = writeSpy.mock.calls[0]![1] as string;
@@ -63,7 +63,7 @@ describe('file content modifications', () => {
 
   it('addInToc should add content within a specified TOC section', () => {
     const contentToAdd = ['> A new quote.'];
-    addInToc(MOCK_LIBRARY_NAME, FileType.FileTypeEntity, MOCK_ENTITY_NAME, 'Section 2: More Details', contentToAdd);
+    addContentToSection(MOCK_LIBRARY_NAME, FileType.FileTypeEntity, MOCK_ENTITY_NAME, 'Section 2: More Details', contentToAdd);
 
     expect(fs.writeFileSync).toHaveBeenCalledTimes(1);
     const writtenContent = writeSpy.mock.calls[0]![1] as string;

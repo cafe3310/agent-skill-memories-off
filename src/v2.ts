@@ -1,12 +1,12 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { ENV_VARS, getEnvVar, logfile, setLogOutputFile } from "../utils.ts";
-import { manualTools } from "./tools/manual.ts";
-import { entityTools } from "./tools/entity.ts";
-import { backupTools } from "./tools/backup.ts";
-import { relationTools } from "./tools/relation.ts";
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { retrievalTools } from "./tools/retrieval.ts"; // Changed import
+import {ENV_VARS, getEnvVar, logfile, setLogOutputFile} from "@src/basics/utils.ts";
+import {manualTools} from "@src/features/manual.ts";
+import {entityTools} from "@src/features/entity.ts";
+import {backupTools} from "@src/features/backup.ts";
+import {relationTools} from "@src/features/relation.ts";
+import {retrievalTools} from "@src/features/retrieval.ts";
 
 // This is the entry point for the v2 server.
 export async function runV2() {

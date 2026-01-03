@@ -1,10 +1,11 @@
 import {z} from 'zod';
 import {zodToJsonSchema} from 'zod-to-json-schema';
-import {FileType, type McpHandlerDefinition} from "../../typings.ts";
-import {normalizeReason} from "../editor/text.ts";
-import {readFileLines} from "../editor/file-ops.ts";
-import {add, replace} from "../editor/editing.ts";
 import {getLibraryNames} from "../runtime.ts";
+import {normalizeReason} from "@src/basics/text.ts";
+import type {McpHandlerDefinition} from "@src/features/types.ts";
+import {readFileContent} from "@src/basics/file-ops.ts";
+import {FileType} from "@src/entities/editor/types.ts";
+import {addContentToThing, replace} from "@src/entities/editor/editing.ts";
 
 // Zod schema for the readManual tool
 const ReadManualInputSchema = z.object({
@@ -38,7 +39,7 @@ export const readManualTool: McpHandlerDefinition<typeof ReadManualInputSchema, 
   },
   handler: (args, name) => {
     const {libraryName, reason} = ReadManualInputSchema.parse(args);
-    const lines = readFileLines(libraryName, FileType.FileTypeMeta, '');
+    const lines = readFileContent(libraryName, FileType.FileTypeMeta, '');
 
     // 返回内容
     return `<${name} reason=${normalizeReason(reason)} CONTENT>
@@ -98,11 +99,11 @@ export const editManualTool: McpHandlerDefinition<typeof EditManualInputSchema, 
       }, newLines.split('\n'));
     } else {
       // 否则追加到文件末尾
-      add(libraryName, FileType.FileTypeMeta, '', newLines.split('\n'));
+      addContentToThing(libraryName, FileType.FileTypeMeta, '', newLines.split('\n'));
     }
 
     // 对该工具，我们返回编辑后的全文
-    const lines = readFileLines(libraryName, FileType.FileTypeMeta, '');
+    const lines = readFileContent(libraryName, FileType.FileTypeMeta, '');
     return `<${name} reason=${normalizeReason(reason)} result=success UPDATED CONTENT>
 ${lines.join('\n')}
 </${name}>`;

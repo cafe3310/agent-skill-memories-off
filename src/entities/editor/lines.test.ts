@@ -1,9 +1,9 @@
 import {describe, expect, it} from 'bun:test';
-import '../../test/setup';
+import '@src/tests/setup';
 
-import type {FileWholeLines} from '../../typings';
 import {linesMatchContent, linesReplace} from "./lines.ts";
-import {MOCK_FILE_CONTENT_LINES_2} from "../../test/setup";
+import {MOCK_FILE_CONTENT_LINES_2} from "@src/tests/setup.ts";
+import type {FileContent} from "@src/entities/editor/types.ts";
 
 describe('line operations', () => {
   it('linesMatchContent should find a unique content block', () => {
@@ -18,7 +18,7 @@ describe('line operations', () => {
   });
 
   it('linesMatchContent should throw if content is not unique', () => {
-    const duplicatedLines = [...MOCK_FILE_CONTENT_LINES_2, 'Here is some detail.', 'Line to be deleted.'] as FileWholeLines;
+    const duplicatedLines = [...MOCK_FILE_CONTENT_LINES_2, 'Here is some detail.', 'Line to be deleted.'] as FileContent;
     const contentToFind = ['Here is some detail.', 'Line to be deleted.'];
     expect(() => linesMatchContent(duplicatedLines, contentToFind)).toThrow('发现多个匹配的内容块，请提供更精确的定位。');
   });

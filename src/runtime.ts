@@ -1,7 +1,12 @@
-import {checks, ENV_VARS, getEnvVar, logfile} from '../utils.ts';
 import path from "path";
 import shell from 'shelljs';
-import type {FileAbsolutePath, FolderAbsolutePath, FileType, ThingName} from "../typings.ts";
+import {checks, ENV_VARS, getEnvVar, logfile} from "@src/basics/utils.ts";
+import {
+  type FileAbsolutePath,
+  FileType,
+  type FolderAbsolutePath,
+  type ThingName
+} from "@src/entities/editor/types.ts";
 
 // Define subdirectory names
 export const ENTITIES_DIR = 'entities';

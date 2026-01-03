@@ -1,7 +1,7 @@
 import { describe, test, expect } from 'bun:test';
-import '../../test/setup';
+import '@src/tests/setup';
 import { mergeFrontmatter } from './front-matter';
-import { FrontMatterPresetKeys } from '../../typings';
+import {FrontMatterPresetKeys} from "@src/entities/editor/types.ts";
 
 describe('mergeFrontmatter', () => {
   test('should merge new keys from source', () => {

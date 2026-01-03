@@ -1,16 +1,14 @@
-import '../../test/setup';
+import '@src/tests/setup';
 import {describe, it, expect, spyOn, beforeEach, afterEach} from 'bun:test';
 import shell from 'shelljs';
-import * as runtime from '../runtime';
+import * as runtime from '@src/runtime';
 import {
   findEntityByNameGlob,
   findEntityByFrontMatterRegex,
   findEntityByNonFrontMatterRegex,
-  findRelations // Import the new function
 } from './retrieval';
-import type {LibraryName} from '../../typings';
-import * as fileOps from '../editor/file-ops';
-import {FileType} from "../../typings.ts";
+import * as fileOps from '@src/basics/file-ops';
+import {FileType, type LibraryName} from "@src/entities/editor/types.ts";
 
 describe('retrieval functions', () => {
   const MOCK_LIBRARY_NAME = 'test-library' as LibraryName;
@@ -19,7 +17,7 @@ describe('retrieval functions', () => {
   const lsSpy = spyOn(shell, 'ls');
   const grepSpy = spyOn(shell, 'grep');
   const getEntityDirPathSpy = spyOn(runtime, 'getEntityDirPath');
-  const readFileLinesSpy = spyOn(fileOps, 'readFileLines');
+  const readFileLinesSpy = spyOn(fileOps, 'readFileContent');
 
   beforeEach(() => {
     lsSpy.mockClear();
