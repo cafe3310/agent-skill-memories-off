@@ -6,7 +6,7 @@ import {
   FileType,
   type FileContent,
   type LibraryName,
-  type ThingName
+  type ThingName, type ThingLocator
 } from "@src/entities/editor/types.ts";
 import {checks} from "@src/basics/utils.ts";
 
@@ -27,7 +27,11 @@ export function pathForFile(libraryName: LibraryName, fileType: FileType, thingN
 }
 
 // 读指定 Library 中特定 Thing 的所有内容。
-export function readFileContent(libraryName: LibraryName, fileType: FileType, name: ThingName): FileContent {
+export function readFileContent(target: ThingLocator): FileContent {
+  return readFileContent_(target.library, target.type, target.name);
+}
+
+function readFileContent_(libraryName: LibraryName, fileType: FileType, name: ThingName): FileContent {
   const fullPath = pathForFile(libraryName, fileType, name);
   checks(shell.test('-f', fullPath), `无法找到文件: ${fullPath}`);
   const fileContent = fs.readFileSync(fullPath, 'utf-8');
@@ -39,13 +43,21 @@ export function readFileContent(libraryName: LibraryName, fileType: FileType, na
 }
 
 // 写指定 Library 中特定 Thing，覆盖其内容。
-export function writeFileContent(libraryName: LibraryName, fileType: FileType, name: ThingName, content: FileContent): void {
+export function writeFileContent(target: ThingLocator, content: FileContent): void {
+  writeFileContent_(target.library, target.type, target.name, content);
+}
+
+function writeFileContent_(libraryName: LibraryName, fileType: FileType, name: ThingName, content: FileContent): void {
   const fullPath = pathForFile(libraryName, fileType, name);
   fs.writeFileSync(fullPath, content.join('\n'), 'utf-8');
 }
 
 // 删除指定 Library 中特定 Thing 的文件，移动到回收站。
-export function trashFile(libraryName: LibraryName, fileType: FileType, name: ThingName): void {
+export function trashFile(target: ThingLocator): void {
+  trashFile_(target.library, target.type, target.name);
+}
+
+function trashFile_(libraryName: LibraryName, fileType: FileType, name: ThingName): void {
   const fullPath = pathForFile(libraryName, fileType, name);
   checks(shell.test('-f', fullPath), `无法找到文件: ${fullPath}`);
   const filePathInTrash = generateEntityTrashPath(libraryName, name);
@@ -53,14 +65,28 @@ export function trashFile(libraryName: LibraryName, fileType: FileType, name: Th
 }
 
 // 创建指定 Library 中特定 Thing 的文件，内容为 content；如果文件已存在则失败。
-export function createFile(libraryName: LibraryName, fileType: FileType, name: ThingName, content: FileContent): void {
-  const fullPath = pathForFile(libraryName, fileType, name);
-  checks(!shell.test('-e', fullPath), `文件已存在，无法创建: ${fullPath}`);
-  writeFileContent(libraryName, fileType, name, content);
+export function createFile(target: ThingLocator, content: FileContent): void {
+  createFile_(target.library, target.type, target.name, content);
 }
 
-// 重命名指定 Library 中特定 Thing 的文件，从 oldName 改为 newName。
-export function renameFile(libraryName: LibraryName, fileType: FileType, oldName: ThingName, newName: ThingName): void {
+function createFile_(libraryName: LibraryName, fileType: FileType, name: ThingName, content: FileContent): void {
+  const fullPath = pathForFile(libraryName, fileType, name);
+  checks(!shell.test('-e', fullPath), `文件已存在，无法创建: ${fullPath}`);
+  writeFileContent_(libraryName, fileType, name, content);
+}
+
+// 重命名指定 Library 中特定 Thing 的文件，从 oldName 改为 newName
+// 返回新的 ThingLocator。
+export function renameFile(target: ThingLocator, newName: ThingName): ThingLocator {
+  renameFile_(target.library, target.type, target.name, newName);
+  return {
+    library: target.library,
+    type: target.type,
+    name: newName
+  };
+}
+
+function renameFile_(libraryName: LibraryName, fileType: FileType, oldName: ThingName, newName: ThingName): void {
   const oldFullPath = pathForFile(libraryName, fileType, oldName);
   const newFullPath = pathForFile(libraryName, fileType, newName);
   checks(shell.test('-f', oldFullPath), `无法找到源文件: ${oldFullPath}`);
@@ -68,8 +94,12 @@ export function renameFile(libraryName: LibraryName, fileType: FileType, oldName
   shell.mv(oldFullPath, newFullPath);
 }
 
-// 检查指定 Library 中特定 Thing 的文件是否存在。
-export function checkFileExists(libraryName: LibraryName, fileType: FileType, name: ThingName): boolean {
+// 检查指定 Library 中特定 Thing 的文件是否存在
+export function fileExists(target: ThingLocator): boolean {
+  return checkFileExists_(target.library, target.type, target.name);
+}
+
+function checkFileExists_(libraryName: LibraryName, fileType: FileType, name: ThingName): boolean {
   const fullPath = pathForFile(libraryName, fileType, name);
   return shell.test('-f', fullPath);
 }

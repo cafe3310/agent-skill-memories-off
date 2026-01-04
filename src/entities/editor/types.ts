@@ -37,7 +37,7 @@ export type ThingLocator = {
 
 // endregion
 
-// region content
+// region Content
 // 我们对内容的定义是
 // content 包括 toc, frontmatter, 以及普通正文
 
@@ -68,7 +68,7 @@ export type ContentLocator = {
 // 已解析的内容定位器，包含目标事物定位器和内容定位器的详细信息
 export type ResolvedContentLocator = {
   target: ThingLocator,
-  origin: ContentLocator | 'frontmatter',
+  origin: ContentLocator | 'frontmatter' | 'document',
   beginLineNumber: ContentLineNumber;
   endLineNumber: ContentLineNumber;
   beginContentLine: ContentLineExact;
@@ -82,12 +82,12 @@ export type FileContent = WeakOpaque<string[], 'FileContent'>;
 
 // region Heading 和 Toc
 
-// 模糊匹配的章节标题。
-// 如 "installation guide"
+// 模糊匹配的章节标题 -- 虽然名为 glob 但不支持 * 和 ? 通配符，只能部分匹配
+// 如 "installation guide" 可以匹配 "## Installation (Guide):"
 export type HeadingGlob = WeakOpaque<string, 'HeadingGlob'>;
 
 // 精确匹配的章节标题行。
-// 如 "## Installation (Guide):"
+// 如 "## Installation (Guide):" 只能匹配完全相同的标题行
 export type HeadingExact = WeakOpaque<string, 'HeadingExact'>;
 
 // 标题层级，从 1 开始计数
@@ -114,7 +114,8 @@ export type Heading = {
 export type Toc = Heading[];
 
 // endregion
-// region Front Matter
+
+// region FrontMatter
 // 我们定义 frontmatter 只能是一级键值对，键和值均为字符串 - 而且每个项目必须仅占一行。
 // frontmatter 中的不同类型 key 可以通过前缀区分，例如 "relation xxx: content", "relation yyy: content"
 
@@ -141,3 +142,21 @@ export const enum FrontMatterPresetKeys {
 }
 
 // endregion
+
+// region Document
+// Document 是我们对文件内容的整体抽象，包含 content, toc, frontmatter 等
+export type Document = {
+  // 文件定位标志
+  locator: ThingLocator;
+  frontmatter: FrontMatter;
+  sections: {
+    // 标题和标题行
+    heading?: Heading,
+    // 内容定位行（不含标题）
+    locator: ResolvedContentLocator,
+    // 内容
+    content: string[],
+  }[];
+  // 完整文件内容
+  fileContent: FileContent;
+}

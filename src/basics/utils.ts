@@ -104,3 +104,20 @@ export function globToRegex(globPattern: string): string {
   regex = regex.replace(/\?/g, '.');  // ? matches any single character
   return regex;
 }
+
+export function deepFreeze<T>(object: T): T {
+  // Retrieve the property names defined on object
+  const propNames = Object.getOwnPropertyNames(object);
+
+  // Freeze the properties before freezing the object itself
+  for (const name of propNames) {
+    // @ts-expect-error 绕过类型检查
+    const value = object[name] as unknown;
+
+    // Recurse if the value is an object or array
+    if (value && typeof value === "object" && !Object.isFrozen(value)) {
+      deepFreeze(value);
+    }
+  }
+  return Object.freeze(object);
+}

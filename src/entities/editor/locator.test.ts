@@ -4,7 +4,7 @@ import '@src/tests/setup';
 import {linesMatchContent} from "./locator.ts";
 import {MOCK_FILE_CONTENT_LINES_2} from "@src/tests/setup.ts";
 import type {FileContent} from "@src/entities/editor/types.ts";
-import {linesReplace} from "@src/entities/editor/editing.ts";
+import {innerReplace} from "@src/entities/editor/editing.ts";
 
 describe('line operations', () => {
   it('linesMatchContent should find a unique content block', () => {
@@ -26,13 +26,13 @@ describe('line operations', () => {
 
   it('linesReplace should replace a block of lines', () => {
     const newContent = ['This is new content.'];
-    const result = linesReplace(MOCK_FILE_CONTENT_LINES_2, 8, 10, newContent);
+    const result = innerReplace(MOCK_FILE_CONTENT_LINES_2, 8, 10, newContent);
     expect(result[7]).toBe(newContent[0]!);
     expect(result.length).toBe(MOCK_FILE_CONTENT_LINES_2.length - 2);
   });
 
   it('linesReplace should delete a block of lines if new content is empty', () => {
-    const result = linesReplace(MOCK_FILE_CONTENT_LINES_2, 8, 10, []);
+    const result = innerReplace(MOCK_FILE_CONTENT_LINES_2, 8, 10, []);
     expect(result[7]).toBe('');
     expect(result.length).toBe(MOCK_FILE_CONTENT_LINES_2.length - 3);
   });

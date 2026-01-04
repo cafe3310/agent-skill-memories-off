@@ -5,7 +5,7 @@ import {normalizeReason} from "@src/basics/text.ts";
 import type {McpHandlerDefinition} from "@src/features/types.ts";
 import {readFileContent} from "@src/basics/file-ops.ts";
 import {FileType} from "@src/entities/editor/types.ts";
-import {addContentToThing, replace} from "@src/entities/editor/editing.ts";
+import {addContentToThing, replaceContent} from "@src/entities/editor/editing.ts";
 
 // Zod schema for the readManual tool
 const ReadManualInputSchema = z.object({
@@ -93,7 +93,7 @@ export const editManualTool: McpHandlerDefinition<typeof EditManualInputSchema, 
 
     if ((oldLines || '').trim().length > 0) {
       // 如果 oldLines 非空 - 编辑
-      replace(libraryName, FileType.FileTypeMeta, '', {
+      replaceContent(libraryName, FileType.FileTypeMeta, '', {
         'type': 'Lines',
         contentLines: oldLines.split('\n'),
       }, newLines.split('\n'));

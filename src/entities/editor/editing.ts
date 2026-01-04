@@ -3,247 +3,130 @@ import {
   type ContentLineNumber,
   type ContentLocator,
   type FileContent,
-  FileType,
-  type Heading,
   type HeadingGlob,
-  type LibraryName,
-  type ThingName
+  type ThingLocator
 } from "@src/entities/editor/types.ts";
 import {readFileContent, writeFileContent} from "@src/basics/file-ops.ts";
-import {getToc, matchHeadingInTocNoThrow, matchHeadingInToc} from "./toc.ts";
+import {matchHeadingInToc} from "./toc.ts";
 import {resolveContentLocator} from "./locator.ts";
+import {parseDocument} from "@src/entities/editor/document.ts";
 import {checks} from "@src/basics/utils.ts";
 
-export type Section = {
-  heading: Heading;
-  content: string[];
-};
-
-export function splitFileIntoSections(libraryName: LibraryName, fileType: FileType, name: ThingName): Section[] {
-  const toc = getToc({ library: libraryName, type: fileType, name: name });
-  const sections: Section[] = [];
-
-  for (const heading of toc) {
-    const content = readSectionContent(libraryName, fileType, name, heading.text) ?? [];
-    sections.push({heading, content });
+// 在文件中替换内容
+// 仅当可定位到唯一内容时，才进行替换操作
+// 如果 newContent 为空数组，则表示删除定位到的内容
+export function replaceContent(target: ThingLocator, oldContent: ContentLocator, newContent: ContentLineExact[]): void {
+  const content = readFileContent(target);
+  const resolved = resolveContentLocator(target, oldContent);
+  if (!resolved) {
+    throw new Error(`替换内容不唯一或无法定位到，替换失败`);
   }
-
-  return sections;
+  const updateContent: FileContent = innerReplace(content, resolved.beginLineNumber, resolved.endLineNumber, newContent);
+  writeFileContent(target, updateContent);
 }
 
+// 在文件指定的章节中替换内容
+// 仅当可定位到唯一章节和唯一内容时，才进行替换操作
+// 如果 newContent 为空数组，则表示删除定位到的内容
+export function replaceInHeading(target: ThingLocator, headingLocator: HeadingGlob, oldContent: ContentLocator, newContent: ContentLineExact[]): void {
 
-export function readSectionContent(libraryName: LibraryName, fileType: FileType, name: ThingName, tocGlob: HeadingGlob): string[] | null {
-  const lines = readFileContent(libraryName, fileType, name);
-  const tocList = getToc({ library: libraryName, type: fileType, name: name });
-  const matchedTocs = matchHeadingInTocNoThrow({library: libraryName, type: fileType, name: name}, tocGlob);
+  const doc = parseDocument(target);
 
-  // Only proceed if we find exactly one match
-  if (matchedTocs.length !== 1) {
-    return null;
-  }
-  const matchedToc = matchedTocs[0]!;
+  // 唯一匹配章节
+  const matchedToc = matchHeadingInToc(target, headingLocator);
   const tocLineNumber = matchedToc.lineNumber;
 
-  const tocIndex = tocList.findIndex(item => item.lineNumber === tocLineNumber);
-  const nextToc = tocList[tocIndex + 1];
+  // 在 doc 中找到这个章节
+  const found = doc.sections.find(section => section.heading?.lineNumber === tocLineNumber);
 
-  const sectionStartLineNumber: ContentLineNumber = tocLineNumber + 1; // Content starts after the heading
-  const sectionEndLineNumber: ContentLineNumber = nextToc ? nextToc.lineNumber - 1 : lines.length;
+  checks(!!found, `在 ${target.library} 库的 ${target.type} 类型的 ${target.name} 中，未找到章节 ${JSON.stringify(headingLocator)}`);
 
-  if (sectionStartLineNumber > sectionEndLineNumber) {
-    return []; // Section has a heading but no content
-  }
-
-  return lines.slice(sectionStartLineNumber - 1, sectionEndLineNumber);
-}
-
-export function replace(libraryName: LibraryName, fileType: FileType, name: ThingName, oldContent: ContentLocator, newContent: ContentLineExact[]): void {
-  const lines = readFileContent(libraryName, fileType, name);
-  const resolved = resolveContentLocator({library: libraryName, type: fileType, name: name}, oldContent);
-  const updatedLines: FileContent = linesReplace(lines, resolved.beginLineNumber, resolved.endLineNumber, newContent);
-  checks(updatedLines && updatedLines.length > 0, `替换逻辑未执行，原因未知。`);
-  writeFileContent(libraryName, fileType, name, updatedLines);
-}
-
-export function replaceInToc(libraryName: LibraryName, fileType: FileType, name: ThingName, toc: HeadingGlob, oldContent: ContentLocator, newContent: ContentLineExact[]): void {
-  const lines = readFileContent(libraryName, fileType, name);
-
-  const tocList = getToc({ library: libraryName, type: fileType, name: name });
-  // args to obj: {library: libraryName, type: fileType, name: name}
-  const matchedToc = matchHeadingInToc({ library: libraryName, type: fileType, name: name }, toc);
-  const tocLineNumber = matchedToc.lineNumber;
-
-  const tocIndex = tocList.findIndex(item => item.lineNumber === tocLineNumber);
-  const nextToc = tocList[tocIndex + 1];
-  const sectionStartLineNumber: ContentLineNumber = tocLineNumber;
-  const sectionEndLineNumber: ContentLineNumber = nextToc ? nextToc.lineNumber - 1 : lines.length;
-
-  const resolved = resolveContentLocator({
-    library: libraryName,
-    type: fileType,
-    name: name
-  }, oldContent, {
-    searchStartLine: sectionStartLineNumber,
-    searchEndLine: sectionEndLineNumber
-  });
-  const beginLineNo = resolved.beginLineNumber;
-  const endLineNo = resolved.endLineNumber;
-  const updatedLines = linesReplace(lines, beginLineNo, endLineNo, newContent);
-  writeFileContent(libraryName, fileType, name, updatedLines);
-}
-
-export function insertAfter(libraryName: LibraryName, fileType: FileType, name: ThingName, content: ContentLineExact[], afterContent: ContentLineExact[]): void {
-  const lines = readFileContent(libraryName, fileType, name);
-  const resolved = resolveContentLocator({ library: libraryName, type: fileType, name: name }, {
-    type: 'Lines',
-    contentLines: afterContent
-  });
-  const updatedLines = linesReplace(
-    lines,
-    resolved.beginLineNumber,
-    resolved.endLineNumber,
-    [...afterContent, ...content]
-  );
-  writeFileContent(libraryName, fileType, name, updatedLines);
-}
-
-export function insertInTocAfter(libraryName: LibraryName, fileType: FileType, name: ThingName, toc: HeadingGlob, content: ContentLineExact[], afterContent: ContentLineExact[]): void {
-
-  const lines = readFileContent(libraryName, fileType, name);
-
-  const tocList = getToc({ library: libraryName, type: fileType, name: name });
-  const matchedToc = matchHeadingInToc({ library: libraryName, type: fileType, name: name }, toc);
-  const tocLineNumber = matchedToc.lineNumber;
-
-  const tocIndex = tocList.findIndex(item => item.lineNumber === tocLineNumber);
-  const nextToc = tocList[tocIndex + 1];
-  const sectionStartLineNumber: ContentLineNumber = tocLineNumber;
-  const sectionEndLineNumber: ContentLineNumber = nextToc ? nextToc.lineNumber - 1 : lines.length;
-
-  const resolved = resolveContentLocator({
-    library: libraryName,
-    type: fileType,
-    name: name
-  }, {
-    type: 'Lines',
-    contentLines: afterContent
-  }, {
-    searchStartLine: sectionStartLineNumber,
-    searchEndLine: sectionEndLineNumber
+  // 在章节范围内，定位内容
+  const resolved = resolveContentLocator(target, oldContent, {
+    searchStartLine: found.locator.beginLineNumber,
+    searchEndLine: found.locator.endLineNumber
   });
 
-  const updatedLines = linesReplace(
-    lines,
-    resolved.beginLineNumber,
-    resolved.endLineNumber,
-    [...afterContent, ...content]
-  );
+  checks(!!resolved, `在 ${target.library} 库的 ${target.type} 类型的 ${target.name} 中，章节 ${JSON.stringify(headingLocator)} 内未找到内容 ${JSON.stringify(oldContent)}`);
 
-  writeFileContent(libraryName, fileType, name, updatedLines);
+  // 替换内容并保存
+  const newFileContent = innerReplace(doc.fileContent, resolved.beginLineNumber, resolved.endLineNumber, newContent);
+  writeFileContent(target, newFileContent);
 }
 
-export function addContentToThing(libraryName: LibraryName, fileType: FileType, name: ThingName, content: ContentLineExact[]): void {
-  const lines = readFileContent(libraryName, fileType, name);
-  const updatedLines = [...lines, ...content] as FileContent;
-  writeFileContent(libraryName, fileType, name, updatedLines);
-}
+// 完整替换指定章节的内容
+// 仅当可定位到唯一章节时，才进行替换操作
+export function replaceSection(target: ThingLocator, headingLocator: HeadingGlob, newContent: ContentLineExact[]): void {
+  const doc = parseDocument(target);
 
-export function addContentToSection(libraryName: LibraryName, fileType: FileType, name: ThingName, toc: HeadingGlob, content: ContentLineExact[]): void {
-
-  const lines = readFileContent(libraryName, fileType, name);
-
-  // const tocList = getToc(libraryName, fileType, name);
-  const tocList = getToc({ library: libraryName, type: fileType, name: name });
-  const matchedToc = matchHeadingInToc({ library: libraryName, type: fileType, name: name }, toc);
+  // 唯一匹配章节
+  const matchedToc = matchHeadingInToc(target, headingLocator);
   const tocLineNumber = matchedToc.lineNumber;
 
-  const tocIndex = tocList.findIndex(item => item.lineNumber === tocLineNumber);
-  const nextToc = tocList[tocIndex + 1];
-  const insertLineNumber: ContentLineNumber = nextToc ? nextToc.lineNumber : (lines.length + 1);
+  // 在 doc 中找到这个章节
+  const found = doc.sections.find(section => section.heading?.lineNumber === tocLineNumber);
 
-  let updatedLines: FileContent;
-  if (insertLineNumber <= lines.length) {
-    const targetLineContent = lines[insertLineNumber - 1];
-    updatedLines = linesReplace(
-      lines,
-      insertLineNumber,
-      insertLineNumber,
-      [...content, targetLineContent ?? '']
-    );
-    writeFileContent(libraryName, fileType, name, updatedLines);
-  } else {
-    updatedLines = [...lines, ...content] as FileContent;
-    writeFileContent(libraryName, fileType, name, updatedLines);
-  }
+  checks(!!found, `在 ${target.library} 库的 ${target.type} 类型的 ${target.name} 中，未找到章节 ${JSON.stringify(headingLocator)}`);
+
+  // 替换内容并保存
+  const newFileContent = innerReplace(doc.fileContent, found.locator.beginLineNumber, found.locator.endLineNumber, newContent);
+  writeFileContent(target, newFileContent);
 }
 
-export function deleteContent(libraryName: LibraryName, fileType: FileType, name: ThingName, content: ContentLineExact[]): void {
-  const lines = readFileContent(libraryName, fileType, name);
-  const resolved = resolveContentLocator({ library: libraryName, type: fileType, name: name }, { type: 'Lines', contentLines: content });
-  const updatedLines = linesReplace(lines, resolved.beginLineNumber, resolved.endLineNumber, []);
-  writeFileContent(libraryName, fileType, name, updatedLines);
+// 在文件末尾添加内容
+export function addContentToThing(target: ThingLocator, content: ContentLineExact[]): void {
+  const oldContent = readFileContent(target);
+  const newContent = innerReplace(oldContent, oldContent.length + 1, oldContent.length, content);
+  writeFileContent(target, newContent);
 }
 
-export function deleteInToc(libraryName: LibraryName, fileType: FileType, name: ThingName, toc: HeadingGlob, content: ContentLineExact[]): void {
-  const lines = readFileContent(libraryName, fileType, name);
+// 在指定的章节末尾添加内容
+// 仅当可定位到唯一章节时，才进行添加操作
+// 如果 newContent 为空数组，则不进行任何操作
+export function appendInHeading(target: ThingLocator, headingLocator: HeadingGlob, newContent: ContentLineExact[]): void {
+  const doc = parseDocument(target);
 
-  const tocList = getToc({ library: libraryName, type: fileType, name: name });
-  const matchedToc = matchHeadingInToc({ library: libraryName, type: fileType, name: name }, toc);
+  // 唯一匹配章节
+  const matchedToc = matchHeadingInToc(target, headingLocator);
   const tocLineNumber = matchedToc.lineNumber;
 
-  const tocIndex = tocList.findIndex(item => item.lineNumber === tocLineNumber);
-  const nextToc = tocList[tocIndex + 1];
-  const sectionStartLineNumber: ContentLineNumber = tocLineNumber;
-  const sectionEndLineNumber: ContentLineNumber = nextToc ? nextToc.lineNumber - 1 : lines.length;
+  // 在 doc 中找到这个章节
+  const found = doc.sections.find(section => section.heading?.lineNumber === tocLineNumber);
 
-  const resolved = resolveContentLocator({
-    library: libraryName,
-    type: fileType,
-    name: name
-  }, {
-    type: 'Lines',
-    contentLines: content
-  }, {
-    searchStartLine: sectionStartLineNumber,
-    searchEndLine: sectionEndLineNumber
-  });
-  const updatedLines = linesReplace(lines, resolved.beginLineNumber, resolved.endLineNumber, []);
-  writeFileContent(libraryName, fileType, name, updatedLines);
+  checks(!!found, `在 ${target.library} 库的 ${target.type} 类型的 ${target.name} 中，未找到章节 ${JSON.stringify(headingLocator)}`);
+
+  // 在章节范围内，定位内容
+  const insertLineNumber = found.locator.endLineNumber + 1;
+
+  // 插入内容并保存
+  const newFileContent = innerReplace(doc.fileContent, insertLineNumber, insertLineNumber - 1, newContent);
+  writeFileContent(target, newFileContent);
 }
 
-export function replaceSection(libraryName: LibraryName, fileType: FileType, name: ThingName, oldTocGlob: HeadingGlob, newHeading: string, newBodyContent: string[]): void {
-  const lines = readFileContent(libraryName, fileType, name);
-  const tocList = getToc({ library: libraryName, type: fileType, name: name });
-  const matchedToc = matchHeadingInToc({ library: libraryName, type: fileType, name: name }, oldTocGlob);
-  const tocLineNumber = matchedToc.lineNumber;
-
-  const tocIndex = tocList.findIndex(item => item.lineNumber === tocLineNumber);
-  const nextToc = tocList[tocIndex + 1];
-
-  const sectionStartLineNumber: ContentLineNumber = tocLineNumber;
-  const sectionEndLineNumber: ContentLineNumber = nextToc ? nextToc.lineNumber - 1 : lines.length;
-
-  const newSectionLines = [newHeading, ...newBodyContent];
-  const updatedLines = linesReplace(lines, sectionStartLineNumber, sectionEndLineNumber, newSectionLines);
-
-  writeFileContent(libraryName, fileType, name, updatedLines);
-}
-
-// linesReplace(lines, beginLineNo, endLineNo, newContentLines) => FileWholeLines
-// 在给定的行数组中，将从 beginLineNo 到 endLineNo 的行替换为 newContentLines，返回新的行数组。
-export function linesReplace(lines: FileContent,
-                             beginLineNo: ContentLineNumber, endLineNo: ContentLineNumber,
-                             newContentLines: string[]): FileContent {
+/**
+ * linesReplace(lines, beginLineNo, endLineNo, newContentLines) => FileWholeLines
+ * 在给定的行数组中，将从 beginLineNo 到 endLineNo 的行替换为 newContentLines，返回新的行数组
+ * - 删除操作：如果 newContentLines 为空数组，则表示删除指定范围的行
+ * - 插入操作：如果 beginLineNo 大于 endLineNo，则表示在 beginLineNo 位置插入 newContentLines（原先位于 beginLineNo 的行及之后的行会向后移动）
+ * @deprecated 使用 replaceContent 代替
+ */
+export function innerReplace(content: FileContent,
+                             beginLineNo: ContentLineNumber,
+                             endLineNo: ContentLineNumber,
+                             newBlock?: string[]): FileContent {
   const beginIndex = beginLineNo - 1;
   const endIndex = endLineNo - 1;
-  const before = lines.slice(0, beginIndex);
-  const after = lines.slice(endIndex + 1);
+  const before = content.slice(0, beginIndex);
+  const after = content.slice(endIndex + 1);
 
-  if (newContentLines.length === 0) {
+  if (!newBlock || newBlock.length === 0) {
     // 删除操作
     return [...before, ...after] as FileContent;
+  } else if (beginLineNo > endLineNo) {
+    // 插入操作
+    return [...before, ...newBlock, ...after] as FileContent;
   } else {
     // 替换或插入操作
-    return [...before, ...newContentLines, ...after] as FileContent;
+    return [...before, ...newBlock, ...after] as FileContent;
   }
 }

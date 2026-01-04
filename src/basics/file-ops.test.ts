@@ -33,7 +33,7 @@ describe('file operations', () => {
     shellTestSpy.mockImplementation(() => true);
     readSpy.mockImplementation(() => MOCK_FILE_CONTENT.join('\n'));
 
-    const lines = readFileContent(MOCK_LIBRARY_NAME, FileType.FileTypeEntity, MOCK_ENTITY_NAME);
+    const lines = readFileContent({library: MOCK_LIBRARY_NAME, type: FileType.FileTypeEntity, name: MOCK_ENTITY_NAME});
     expect(lines).toEqual(MOCK_FILE_CONTENT);
   });
 
@@ -43,7 +43,7 @@ describe('file operations', () => {
     shellTestSpy.mockImplementation(() => false); // Mock file does not exist
 
     const newContent: FileContent = ['new file content'] as FileContent;
-    createFile(MOCK_LIBRARY_NAME, FileType.FileTypeEntity, 'new-file', newContent);
+    createFile({library: MOCK_LIBRARY_NAME, type: FileType.FileTypeEntity, name: 'new-file'}, newContent);
     expect(writeSpy).toHaveBeenCalledTimes(1);
     expect(writeSpy.mock.calls[0]![1]).toBe('new file content');
   });
@@ -54,6 +54,6 @@ describe('file operations', () => {
     shellTestSpy.mockImplementation(() => true);
 
     const newContent: FileContent = ['new file content'] as FileContent;
-    expect(() => createFile(MOCK_LIBRARY_NAME, FileType.FileTypeEntity, 'existing-file', newContent)).toThrow('文件已存在，无法创建');
+    expect(() => createFile({library: MOCK_LIBRARY_NAME, type: FileType.FileTypeEntity, name: 'existing-file'}, newContent)).toThrow('文件已存在，无法创建');
   });
 });

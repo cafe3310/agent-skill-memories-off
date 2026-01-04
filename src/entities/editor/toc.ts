@@ -10,7 +10,7 @@ import {checks} from "@src/basics/utils.ts";
 // 获取库中 Thing 的完整 ToC 结构。
 export function getToc(target: ThingLocator): Toc {
   const toc: Toc = [];
-  readFileContent(target.library, target.type, target.name)
+  readFileContent(target)
     .forEach((line, index) => {
       if (line.startsWith('#')) {
         const level = (/^#+/.exec(line))?.[0].length ?? 1;

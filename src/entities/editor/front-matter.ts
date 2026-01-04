@@ -9,7 +9,7 @@ import {
 // 定位指定实体的 Front Matter 位置
 // 返回 null 表示不存在 Front Matter，否则返回对应的 ResolvedContentLocator
 export function locateFrontMatter(target: ThingLocator): ResolvedContentLocator | null {
-  const content = readFileContent(target.library, target.type, target.name);
+  const content = readFileContent(target);
   if (content[0]?.trim() !== '---') {
     return null;
   }
@@ -76,7 +76,7 @@ export function mergeFrontMatter(target: FrontMatter, source: FrontMatter): Fron
 // 读取指定实体的 Front Matter 信息
 export function readFrontMatter(target: ThingLocator): FrontMatter {
 
-  const content = readFileContent(target.library, target.type, target.name);
+  const content = readFileContent(target);
 
   const frontMatterEndIndex = content.findIndex((line, index) => index > 0 && line.trim() === '---');
   if (frontMatterEndIndex === -1 || !content[0]?.startsWith('---')) {
@@ -110,7 +110,7 @@ export function readFrontMatter(target: ThingLocator): FrontMatter {
 // 写入指定实体的 Front Matter 信息
 export function writeFrontMatter(target: ThingLocator, frontMatter: FrontMatter): void {
 
-  const lines = readFileContent(target.library, target.type, target.name);
+  const lines = readFileContent(target);
 
   const frontMatterEndIndex = lines.findIndex((line, index) => index > 0 && line.trim() === '---');
 
@@ -131,5 +131,5 @@ export function writeFrontMatter(target: ThingLocator, frontMatter: FrontMatter)
     ...contentLines,
   ];
 
-  writeFileContent(target.library, target.type, target.name, newLines);
+  writeFileContent(target, newLines);
 }

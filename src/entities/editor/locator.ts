@@ -15,7 +15,7 @@ export function resolveContentLocator(target: ThingLocator, locator: ContentLoca
 }): ResolvedContentLocator {
 
   // 先读目标内容
-  const content = readFileContent(target.library, target.type, target.name);
+  const content = readFileContent(target);
 
   // 尝试匹配
   if (locator.type === 'NumbersAndLines') {
