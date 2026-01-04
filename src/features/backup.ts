@@ -13,7 +13,7 @@ export const BackupLibraryInputSchema = z.object({
  * @tool backupLibrary
  * @description 将指定的知识库完整地压缩备份到一个位于 `backups` 目录下的 .zip 文件中。
  *
- * 依赖命令行工具 `zip`，请确保在运行环境中已安装该工具。
+ * 工具依赖：依赖命令行工具 `zip`，请确保在运行环境中已安装该工具。
  *
  * @input
  * - `libraryName`: (string, required) 要备份的知识库的名称。

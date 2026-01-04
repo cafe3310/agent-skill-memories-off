@@ -7,6 +7,7 @@ import {
   type FolderAbsolutePath,
   type ThingName
 } from "@src/entities/editor/types.ts";
+import {normalizeFileName} from "@src/basics/text.ts";
 
 // Define subdirectory names
 export const ENTITIES_DIR = 'entities';
@@ -63,17 +64,17 @@ export function getJourneyFilePath(libraryName: string, journeyId: string): File
 }
 
 export function getEntityFilePath(libraryName: string, entityName: string): FileAbsolutePath {
-  const fileName = `${entityName}.md`;
+  const fileName = `${normalizeFileName(entityName)}.md`;
   return path.join(getLibraryDirPath(libraryName), ENTITIES_DIR, fileName);
 }
 
 export function generateEntityTrashPath(libraryName: string, entityName: string): FileAbsolutePath {
-  const fileName = `${entityName}_${(formatTimestamp())}.md`;
+  const fileName = `${formatTimestamp()}_${normalizeFileName(entityName)}.md`;
   return path.join(getLibraryDirPath(libraryName), TRASH_DIR, fileName);
 }
 
 export function generateBackupPath(libraryName: string): FileAbsolutePath {
-  const fileName = `${libraryName}-backup-${(formatTimestamp())}.zip`;
+  const fileName = `backup_${formatTimestamp()}_${libraryName}.zip`;
   return path.join(getLibraryDirPath(libraryName), BACKUPS_DIR, fileName);
 }
 

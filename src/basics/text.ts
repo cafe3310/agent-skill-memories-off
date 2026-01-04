@@ -90,3 +90,18 @@ export function textToHeading(text: string, level = 2): string {
   const hashes = '#'.repeat(level);
   return `${hashes} ${normalized}`;
 }
+
+// 标准化实体名称：仅允许 CJK 字符、英文字母、数字和中横线
+// 替换非法字符为中横线，合并连续中横线，去除首尾中横线
+// e.g. "File Name 123!" -> "File-Name-123"
+export function normalizeFileName(name: string): string {
+  // 1. 替换非法字符为中横线
+  // 允许: a-z, A-Z, 0-9, \u4e00-\u9fa5 (常用 CJK), -
+  let sanitized = name.replace(/[^a-zA-Z0-9\u4e00-\u9fa5\-]/g, '-');
+
+  // 2. 合并连续的中横线
+  sanitized = sanitized.replace(/-+/g, '-');
+
+  // 3. 去掉首尾的中横线
+  return sanitized.replace(/^-+|-+$/g, '');
+}

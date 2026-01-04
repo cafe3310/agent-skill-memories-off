@@ -27,21 +27,19 @@
 ### 第二部分：待办事项列表
 
 #### In Progress
-- [ ] 2025-11-04-01-31-实现createRelationsTool.md
 
 #### TODO
-- [ ] docs/2026-01-04-Standardize-File-Naming-Conventions.md
-- [ ] 2025-11-03-21-17-实现findEntitysByRelation.md
-- [ ] 2025-11-03-21-17-实现getEntity.md
-- [ ] 2025-11-03-21-17-实现listRecentEntities.md
-- [ ] 2025-11-03-23-59-findEntitiesByMetadata 暂时不支持创建时间和更改时间，因为我们还没实现这两个机制。
-- [ ] 2025-11-03-23-59-findEntitiesByMetadata 暂时不支持 relationAs, 因为我们还没实现这个机制。
+- [ ] 按照 docs/2026-01-04-22-25-tools-spec.md 的计划实现所有工具
+    - [ ] 1. 库观察 (Library Observation): getLibraryStats, loadManual, inspectEntityTypes, inspectMetadataKeys
+    - [ ] 2. 实体检索 (Entity Retrieval): searchEntitiesByName, findEntitiesByMetadata, searchEntitiesByContent, searchEntitiesGlobally
+    - [ ] 3. 实体阅读 (Entity Reading): loadEntities, loadEntitiesToc, loadEntitiesSections
+    - [ ] 4. 实体管理 (Entity Management): createEntities, renameEntity, mergeEntities, trashEntities
+    - [ ] 5. 内容编辑 (Content Editing): addContentToSection, replaceSection
+    - [ ] 6. 关系管理 (Relation Management): createRelations, deleteRelations, getRelatedEntities, findRelations, garbageCollectRelations
+    - [ ] 7. 系统维护 (System Maintenance): backupLibrary, replaceManualSection
+- [ ] docs/2026-01-04-Standardize-File-Naming-Conventions.md 中的命名规范需要在代码中实施。
 
 #### Done
-- [x] 2025-11-03-21-17-实现listEntityTypes.md
-- [x] 2025-11-03-21-17-增强find_entities_by_metadata.md
-- [x] 2025-11-03-21-17-实现search_in_contents.md
-- [x] 2025-11-03-21-19-确保所有测试通过.md
 - [x] 2025-11-03-01-41-订正md文档，反映项目当前现状.md
 
 #### Blocked

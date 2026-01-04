@@ -1,7 +1,7 @@
 import {describe, expect, it} from 'bun:test';
 import '@src/tests/setup';
 
-import {normalizeHeading, normalizeReason, textToHeading, normalizeYamlKey, normalizeFrontmatterLine} from "./text.ts";
+import {normalizeHeading, normalizeReason, textToHeading, normalizeYamlKey, normalizeFrontmatterLine, normalizeFileName} from "./text.ts";
 
 describe('', () => {
   it('normalize', () => {
@@ -66,5 +66,32 @@ describe('', () => {
     // Empty line
     expect(normalizeFrontmatterLine('')).toBe('');
     expect(normalizeFrontmatterLine('  ')).toBe('');
+  });
+
+  it('sanitizeEntityName', () => {
+    // Basic alphanumeric
+    expect(normalizeFileName('NormalName')).toBe('NormalName');
+    expect(normalizeFileName('file-name-123')).toBe('file-name-123');
+
+    // Spaces to hyphens
+    expect(normalizeFileName('File Name With Spaces')).toBe('File-Name-With-Spaces');
+
+    // Special characters to hyphens
+    expect(normalizeFileName('Name!With@Symbols')).toBe('Name-With-Symbols');
+
+    // CJK characters
+    expect(normalizeFileName('中文文件名')).toBe('中文文件名');
+    expect(normalizeFileName('File-测试-Name')).toBe('File-测试-Name');
+
+    // Consecutive hyphens merged
+    expect(normalizeFileName('File   Name')).toBe('File-Name');
+    expect(normalizeFileName('Name---With---Hyphens')).toBe('Name-With-Hyphens');
+
+    // Trim hyphens
+    expect(normalizeFileName('-Start-End-')).toBe('Start-End');
+    expect(normalizeFileName('   Space Start End   ')).toBe('Space-Start-End');
+
+    // Mixed
+    expect(normalizeFileName('  测试！@#123  ')).toBe('测试-123');
   });
 });
