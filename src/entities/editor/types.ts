@@ -129,14 +129,20 @@ export type FrontMatter = FrontMatterEntry[];
 
 // 预定义的 frontmatter key 列表
 export const enum FrontMatterPresetKeys {
-  // 例子：'entity type: Person'
+  // 表达实体类型。值以逗号分隔多个类型。
+  // 例子：'entity type: Person', 'entity type: Location, Organization'
   EntityType = 'entity type',
+  // 表达修改日期。
   // 例子：'date modified: 2024-01-01'
   DateModified = 'date modified',
+  // 表达创建日期。
   // 例子：'date created: 2023-12-31'
   DateCreated = 'date created',
-  // 例子：'relation as member: team_name'
+  // 前缀 key，表达关系。
+  // 解读为 relation as ...(key_suffix) of ...(value)
+  // 例子：'relation as member: team_name', 'relation as project developer: project_name'
   RelationAs = 'relation as',
+  // 表达别名。值以逗号分隔多个别名。
   // 例子：'aliases: alias1, alias2'
   Aliases = 'aliases',
 }

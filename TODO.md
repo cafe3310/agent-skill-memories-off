@@ -30,6 +30,7 @@
 - [ ] 2025-11-04-01-31-实现createRelationsTool.md
 
 #### TODO
+- [ ] docs/2026-01-04-Standardize-File-Naming-Conventions.md
 - [ ] 2025-11-03-21-17-实现findEntitysByRelation.md
 - [ ] 2025-11-03-21-17-实现getEntity.md
 - [ ] 2025-11-03-21-17-实现listRecentEntities.md
