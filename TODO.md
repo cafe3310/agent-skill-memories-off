@@ -1,62 +1,39 @@
-# 项目待办事项
+# 项目待办事项 (TODO.md)
 
-本文档是项目的待办事项列表，旨在帮助成员了解当前需要完成的任务和未来的改进方向。
-
----
-
-### 第一部分：元信息
-
-- **文档结构**: 本文档分为多个部分，分别描述项目的不同方面：
-    1. **元信息**: 解释本文档的结构。
-    2. **待办事项列表**: 列出当前正在执行的和未来的任务，整体上是四个列表结构，分别包括“进行中”，“待办”，“已完成”，“已搁置”；任务信息包括“创建日期”和“优先级”；任务粒度包括“任务”，“开发项”；只有“开发项”才可以直接开发，而“任务”需要拆分为多个“开发项”。
-    3. **问题列表**: Bug 和已知问题的跟踪。
-    4. **优化建议**: 提供对项目的潜在改进方向。
-    5. **未来计划**: 描述项目的长期发展目标。
-
-- **事件流转**:
-    1. 事件首先会进入“问题列表”，“优化建议”或“未来计划”；
-    2. 然后，经过用户和 Agent 的评估和优先级排序后，部分事件会被转移到“待办事项列表”中进行具体分析、拆分和执行；
-    3. 最后，完成的事件会被归档或标记为已完成。
-
-- **引用文档**
-    * 一句话能说清的事情，可以简单在本文件中描述。
-    * 复杂的任务或设计方案，应引用其他设计文档（如 docs/design-x.md 或 docs/bug-x.md）进行详细说明。
+本项目采用 `doc-todo-log-loop` 工作流。所有开发任务必须经用户指派后方可执行。
 
 ---
 
-### 第二部分：待办事项列表
+## 阶段 1: Agent Skill 风格实现 (当前优先级)
 
-#### In Progress
+### 1.1 基础架构搭建
+- [ ] 1.1.1 初始化新的项目结构 (package.json, tsconfig.json, 基础目录)
+- [ ] 1.1.2 实现核心类型定义 (基于 `legacy/src/v2/editor/types.ts` 和优化建议)
+- [ ] 1.1.3 实现底层文件操作封装 (`file-ops.ts`)
 
-#### TODO
-- [ ] 按照 docs/2026-01-04-22-25-tools-spec.md 的计划实现所有工具
-    - [ ] 1. 库观察 (Library Observation): getLibraryStats, loadManual, inspectEntityTypes, inspectMetadataKeys
-    - [ ] 2. 实体检索 (Entity Retrieval): searchEntitiesByName, findEntitiesByMetadata, searchEntitiesByContent, searchEntitiesGlobally
-    - [ ] 3. 实体阅读 (Entity Reading): loadEntities, loadEntitiesToc, loadEntitiesSections
-    - [ ] 4. 实体管理 (Entity Management): createEntities, renameEntity, mergeEntities, trashEntities
-    - [ ] 5. 内容编辑 (Content Editing): addContentToSection, replaceSection
-    - [ ] 6. 关系管理 (Relation Management): createRelations, deleteRelations, getRelatedEntities, findRelations, garbageCollectRelations
-    - [ ] 7. 系统维护 (System Maintenance): backupLibrary, replaceManualSection
-- [ ] docs/2026-01-04-Standardize-File-Naming-Conventions.md 中的命名规范需要在代码中实施。
+### 1.2 核心编辑器 (Editor) 开发
+- [ ] 1.2.1 实现 Markdown 解析与 TOC 生成逻辑
+- [ ] 1.2.2 实现 Frontmatter 处理逻辑
+- [ ] 1.2.3 实现基于 Locator 的章节编辑逻辑 (Add/Replace Section)
 
-#### Done
-- [x] 2025-11-03-01-41-订正md文档，反映项目当前现状.md
+### 1.3 工具集 (Tools) 实现
+- [ ] 1.3.1 实现“库观察”类工具 (loadManual, getLibraryStats)
+- [ ] 1.3.2 实现“实体检索”类工具 (searchEntitiesByName, findEntitiesByMetadata)
+- [ ] 1.3.3 实现“实体阅读”类工具 (loadEntities, loadEntitiesSections)
 
-#### Blocked
-
-#### On Hold
+### 1.4 关系管理 (Relations)
+- [ ] 1.4.1 实现实体间关系的创建与删除逻辑
 
 ---
 
-### 第三部分：问题列表
+## 阶段 2: CLI 优化与 Token 压缩 (待办)
+
+- [ ] 2.1 设计并实现精简版 CLI 输出格式
+- [ ] 2.2 重构工具集以支持 CLI 调用模式
+- [ ] 2.3 进行 Token 消耗对比测试与优化
 
 ---
 
-### 第四部分：优化建议
-
----
-
-### 第五部分：未来计划
-
-
-
+## 已完成任务 (Done)
+- [x] 2026-03-28 项目结构重组，旧代码归档至 `legacy/`
+- [x] 2026-03-28 更新项目章程 (`AGENTS.md`, `GEMINI.md`)，确立新开发战略
