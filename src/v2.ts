@@ -7,6 +7,8 @@ import {entityTools} from "@src/features/entity.ts";
 import {backupTools} from "@src/features/backup.ts";
 import {relationTools} from "@src/features/relation.ts";
 import {retrievalTools} from "@src/features/retrieval.ts";
+import {loadManualTool} from "@src/v2/tools/library-observation/load-manual.ts";
+import {replaceManualSectionTool} from "@src/v2/tools/system-maintenance/replace-manual-section.ts";
 
 // This is the entry point for the v2 server.
 export async function runV2() {
@@ -27,7 +29,15 @@ export async function runV2() {
   });
 
   // Register tools
-  const allTools = [...manualTools, ...entityTools, ...backupTools, ...relationTools, ...retrievalTools];
+  const allTools = [
+    ...manualTools,
+    ...entityTools,
+    ...backupTools,
+    ...relationTools,
+    ...retrievalTools,
+    loadManualTool,
+    replaceManualSectionTool
+  ];
 
   // Register request handlers
   const toolTypes = Object.values(allTools).map(t => t.toolType);
