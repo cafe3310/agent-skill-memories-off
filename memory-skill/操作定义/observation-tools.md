@@ -1,0 +1,48 @@
+# 操作定义: Observation Tools
+
+本文档定义了用于观察和获取知识库全局信息的工具规格。
+
+---
+
+## 1. `getLibraryStats`
+- **职能**: 统计知识库的整体概况，提供量化的图谱视角。
+- **输入参数**:
+  - `libraryName`: 目标知识库名称。
+  - `reason` (可选): 执行操作的原因。
+- **输出报告 (XML)**:
+  - `statistics`:
+    - `total_entities`: 实体总数。
+    - `top_tags`: 使用频率最高的实体类型（entity type）。
+    - `top_relation_types`: 最常见的显式关系类型。
+    - `storage_info`: 磁盘占用情况等。
+
+## 2. `loadManual`
+- **职能**: 读取知识库手册 (`meta.md`)，获取全局规则和指导原则。
+- **输入参数**:
+  - `libraryName`: 目标知识库名称。
+- **输出报告 (XML)**:
+  - `manual_content`: `meta.md` 的完整 Markdown 文本。
+
+## 3. `inspectEntityTypes`
+- **职能**: 列出知识库中所有已定义的实体类型及其分布。
+- **输入参数**:
+  - `libraryName`: 目标知识库名称。
+- **输出报告 (XML)**:
+  - `entity_types`:
+    - 每个 `type` 及其对应的实体数量（count）。
+
+## 4. `inspectMetadataKeys`
+- **职能**: 扫描并收集知识库中所有曾被使用过的元数据键名（Frontmatter Keys）。
+- **输入参数**:
+  - `libraryName`: 目标知识库名称。
+- **输出报告 (XML)**:
+  - `metadata_keys`:
+    - 唯一的键名列表（unique keys），辅助 `findEntitiesByMetadata` 操作。
+
+---
+
+## 5. 操作准则 (Guidelines)
+
+- **任务初始化**: Agent 在开始一个新知识库的任务时，应优先调用 `loadManual` 或 `getLibraryStats` 以快速建立上下文。
+- **Schema 发现**: 通过 `inspectEntityTypes` 和 `inspectMetadataKeys` 了解知识库的实际结构，避免盲目猜测查询条件。
+- **轻量级**: 观察类工具应尽可能返回精炼的结构化数据，减少不必要的冗余输出。
