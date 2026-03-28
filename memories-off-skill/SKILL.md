@@ -1,8 +1,15 @@
-# Agent Skill: memory-skill (技能说明)
+---
+name: memories-off
+description: 管理基于 Markdown 实体的本地知识库。提供库观察、实体检索、按需加载章节、精确编辑及显式关系管理能力。支持长期记忆与持续学习。
+author: github/cafe3310
+license: Apache-2.0
+---
+
+# Agent Skill: memories-off (技能说明)
 
 ## 1. 概述 (Overview)
 
-`memory-skill` 是一个专门用于管理本地结构化知识库的 Agent Skill。它允许 LLM 将非结构化的对话、笔记、项目文档等，转化为由实体、关系和观察组成的知识图谱，并提供高效的检索和编辑能力。
+`memories-off` 是一个专门用于管理本地结构化知识库的 Agent Skill。它允许 LLM 将非结构化的对话、笔记、项目文档等，转化为由实体、关系和观察组成的知识图谱，并提供高效的检索和编辑能力。
 
 该 Skill 旨在支持 LLM 实现“长期记忆”和“持续学习”，并基于 Markdown 文件提供本地优先的数据存储方案。
 
