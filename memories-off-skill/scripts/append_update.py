@@ -53,10 +53,21 @@ def append_update(path: str, entity_name: str, target_heading: str, action: str,
     print(f"[SUCCESS] 已向 {entity_name} 追加更新块并提交审计。")
 
 def main():
+    if "--memo-cli-info" in sys.argv:
+        print("Description: 向已有实体追加非破坏性的更新块（Buffer-Update 模式）。")
+        print("Example: memocli append-update --path . --entity 实体名 --action append --content \"内容\" --reason \"理由\"")
+        sys.exit(0)
+
+    is_memo_cli = "--memo-cli-call" in sys.argv
+    action_name = Path(__file__).stem.replace("_", "-")
+
     parser = argparse.ArgumentParser(
+        prog=f"memocli {action_name}" if is_memo_cli else None,
         description="向实体文件追加缓冲更新块，确保内容不丢失。",
-        formatter_class=argparse.RawDescriptionHelpFormatter
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=f"用法示例:\n  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} --path . --entity 实体名 --action append --content \"内容\" --reason \"理由\""
     )
+    parser.add_argument("--memo-cli-call", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("-p", "--path", required=True, help="知识库根目录。")
     parser.add_argument("-e", "--entity", required=True, help="目标实体名称。")
     parser.add_argument("-th", "--target_heading", default="", help="目标章节标题。")

@@ -117,15 +117,21 @@ def audit_library(path: str, fix: bool, reason: str):
     print("</audit_report>")
 
 def main():
+    if "--memo-cli-info" in sys.argv:
+        print("Description: 审计知识库一致性（WikiLinks, 实体命名）并可选修复。")
+        print("Example: memocli audit-fix --path . --fix --reason \"清理无效引用\"")
+        sys.exit(0)
+
+    is_memo_cli = "--memo-cli-call" in sys.argv
+    action_name = Path(__file__).stem.replace("_", "-")
+
     parser = argparse.ArgumentParser(
+        prog=f"memocli {action_name}" if is_memo_cli else None,
         description="全量审计知识库引用的一致性，发现孤儿关系、失效链接及元数据违规。",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-用法示例:
-  python audit_fix.py --path .
-  python audit_fix.py --path ./kb --fix --reason "清理无效引用"
-        """
+        epilog=f"用法示例:\n  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} --path .\n  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} --path ./kb --fix --reason \"清理无效引用\""
     )
+    parser.add_argument("--memo-cli-call", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("-p", "--path", required=True, help="知识库根目录。")
     parser.add_argument("--fix", action="store_true", help="启用修复模式，自动更正发现的问题。")
     parser.add_argument("-r", "--reason", help="修复时的提交原因（仅在 --fix 时有效）。")

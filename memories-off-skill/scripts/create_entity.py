@@ -9,12 +9,20 @@ import subprocess
 def create_entity(path: str, name: str, entity_type: str, relations: str, reason: str):
     """
     创建符合规范的实体文件并执行 Initial Commit。
+    自动处理 [类型-名称] 的命名契约。
     """
     root = Path(path).resolve()
     ctx = LibraryContext(root, "Target Library")
     
-    # 1. 标准化名称与路径
-    normalized_name = MetadataParser.normalize_name(name)
+    # 1. 处理命名契约: [类型-名称]
+    prefix = f"{entity_type}-"
+    if not name.startswith(prefix):
+        full_name = f"{prefix}{name}"
+    else:
+        full_name = name
+
+    # 标准化名称与路径
+    normalized_name = MetadataParser.normalize_name(full_name)
     file_path = ctx.entities_path / f"{normalized_name}.md"
     
     if file_path.exists():
@@ -22,29 +30,27 @@ def create_entity(path: str, name: str, entity_type: str, relations: str, reason
         sys.exit(1)
 
     # 2. 准备元数据
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    frontmatter = [
-        "---",
-        f"entity type: {entity_type}",
-        f"date created: {today}",
-        f"date modified: {today}",
-        "status: draft"
-    ]
+    # 使用 MetadataParser.serialize 保证格式统一
+    metadata = {
+        "entity type": entity_type,
+        "date created": today,
+        "date modified": today,
+        "status": "draft"
+    }
     
     # 解析并添加关系 (格式示例: "成员: 某组织, 负责: 某项目")
     if relations:
-        rel_list = [r.strip() for t in relations.split(",") for r in [t.strip()]]
-        for rel in rel_list:
-            if ":" in rel:
-                frontmatter.append(f"relation as {rel}")
+        rel_items = [r.strip() for r in relations.split(",")]
+        for item in rel_items:
+            if ":" in item:
+                k, v = item.split(":", 1)
+                metadata[f"relation as {k.strip().lower()}"] = v.strip()
 
-    frontmatter.append("---\n")
-    
-    # 3. 构造初始正文
-    body = f"# {name}\n\n(在此输入实体描述)"
-    
-    content = "\n".join(frontmatter) + body
+    # 3. 构造初始内容
+    body = f"\n# {name}\n\n(在此输入实体描述)"
+    content = MetadataParser.serialize(metadata) + body
     
     # 4. 写入文件
     print(f"[*] 正在创建实体: {normalized_name} (路径: {file_path})")
@@ -65,20 +71,28 @@ def create_entity(path: str, name: str, entity_type: str, relations: str, reason
     except subprocess.CalledProcessError as e:
         print(f"[WARN] 实体已创建但自动提交失败: {e}")
 
-    # XML 报告
-    print(f"\n<create_report name=\"{normalized_name}\" path=\"{file_path}\">")
+    # XML 报告 (明确返回生成的实体名，供 Agent 后续引用)
+    print(f"\n<create_report entity_name=\"{normalized_name}\" file=\"{file_path.name}\">")
     print(f"  <status>success</status>")
+    print(f"  <message>Created entity with standardized name: {normalized_name}</message>")
     print("</create_report>")
 
 def main():
+    if "--memo-cli-info" in sys.argv:
+        print("Description: 创建符合规范的新实体文件，并处理命名契约。")
+        print("Example: memocli create-entity --path . --name 咪咪 --type 宠物 --relations \"成员: 咖啡馆\" --reason \"新增宠物档案\"")
+        sys.exit(0)
+
+    is_memo_cli = "--memo-cli-call" in sys.argv
+    action_name = Path(__file__).stem.replace("_", "-")
+
     parser = argparse.ArgumentParser(
-        description="自动化创建符合规范的知识实体，包含元数据注入与自动提交。",
+        prog=f"memocli {action_name}" if is_memo_cli else None,
+        description="自动化创建符合规范的知识实体，自动补全 [类型-名称] 前缀。",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-用法示例:
-  python create_entity.py --path . --name "张三" --type "人物" --relations "成员: 某团队" --reason "新增联系人"
-        """
+        epilog=f"用法示例:\n  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} --path . --name 咪咪 --type 宠物 --relations \"成员: 咖啡馆\" --reason \"新增宠物档案\""
     )
+    parser.add_argument("--memo-cli-call", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("-p", "--path", required=True, help="知识库根目录。")
     parser.add_argument("-n", "--name", required=True, help="实体显示名称。")
     parser.add_argument("-t", "--type", required=True, help="实体分类（单一值）。")

@@ -64,15 +64,25 @@ def get_stats(path: str, limit_commits: int = 5):
     print("</library_report>")
 
 def main():
+    if "--memo-cli-info" in sys.argv:
+        print("Description: 获取 Memories-Off 知识库的全局资产统计报告。")
+        print("Example: memocli stats --path .")
+        sys.exit(0)
+
+    is_memo_cli = "--memo-cli-call" in sys.argv
+    action_name = Path(__file__).stem.replace("_", "-")
+
     parser = argparse.ArgumentParser(
+        prog=f"memocli {action_name}" if is_memo_cli else None,
         description="获取 memories-off 知识库的全局资产统计报告。",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
+        epilog=f"""
 用法示例:
-  python stats.py --path /path/to/library
-  python stats.py -p ./my_kb --commits 10
+  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} --path .
+  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} -p ./my_kb --commits 10
         """
     )
+    parser.add_argument("--memo-cli-call", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("-p", "--path", required=True, help="知识库的根目录路径。")
     parser.add_argument("-c", "--commits", type=int, default=5, help="显示最近的 Git 提交记录数量 (默认: 5)。")
     

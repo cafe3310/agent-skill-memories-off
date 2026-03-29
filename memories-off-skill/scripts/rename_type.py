@@ -70,10 +70,24 @@ def rename_type(path: str, old_type: str, new_type: str, reason: str):
     print(f"[SUCCESS] 已完成 {len(affected_entities)} 个实体的类型更新。")
 
 def main():
+    if "--memo-cli-info" in sys.argv:
+        print("Description: 全库范围内重命名特定的实体类型并同步文件。")
+        print("Example: memocli rename-type --path . --old 旧类型 --new 新类型 --reason \"原因\"")
+        sys.exit(0)
+
+    is_memo_cli = "--memo-cli-call" in sys.argv
+    action_name = Path(__file__).stem.replace("_", "-")
+
     parser = argparse.ArgumentParser(
+        prog=f"memocli {action_name}" if is_memo_cli else None,
         description="全库重命名实体类型，同步更新 meta.md。",
-        formatter_class=argparse.RawDescriptionHelpFormatter
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=f"""
+用法示例:
+  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} --path . --old 旧类型 --new 新类型 --reason "规范化"
+        """
     )
+    parser.add_argument("--memo-cli-call", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("-p", "--path", required=True, help="知识库根目录。")
     parser.add_argument("--old", required=True, help="旧类型名称。")
     parser.add_argument("--new", required=True, help="新类型名称。")

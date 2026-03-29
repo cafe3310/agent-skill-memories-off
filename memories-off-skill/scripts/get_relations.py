@@ -74,15 +74,21 @@ def get_related_entities(path: str, entity_name: str, relation_type: str = None)
     print("</relations_report>")
 
 def main():
+    if "--memo-cli-info" in sys.argv:
+        print("Description: 查询特定实体的显式语义关系图谱。")
+        print("Example: memocli get-relations --path . --entity 人物-cafe3310")
+        sys.exit(0)
+
+    is_memo_cli = "--memo-cli-call" in sys.argv
+    action_name = Path(__file__).stem.replace("_", "-")
+
     parser = argparse.ArgumentParser(
+        prog=f"memocli {action_name}" if is_memo_cli else None,
         description="分析实体的关联网络，列出所有指向和被指向的关系。",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-用法示例:
-  python get_relations.py --path . --entity 人物-cafe3310
-  python get_relations.py -p ./kb -e 宠物-咪咪 --type 消耗
-        """
+        epilog=f"用法示例:\n  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} --path . --entity 人物-cafe3310\n  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} -p ./kb -e 宠物-咪咪 --type 消耗"
     )
+    parser.add_argument("--memo-cli-call", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("-p", "--path", required=True, help="知识库根目录。")
     parser.add_argument("-e", "--entity", required=True, help="要查询的实体名称（不含 .md）。")
     parser.add_argument("-t", "--type", help="按关系类型过滤（模糊匹配）。")

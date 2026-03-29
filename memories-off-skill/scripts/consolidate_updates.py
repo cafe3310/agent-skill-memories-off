@@ -111,10 +111,21 @@ def consolidate_all(path: str, reason: str):
     print(f"\n[SUCCESS] 梦境整理圆满完成！共处理 {len(affected_files)} 个实体。")
 
 def main():
+    if "--memo-cli-info" in sys.argv:
+        print("Description: 将实体末尾的更新块合并到正式章节中。")
+        print("Example: memocli consolidate-updates --path . --reason \"定期梦境整理\"")
+        sys.exit(0)
+
+    is_memo_cli = "--memo-cli-call" in sys.argv
+    action_name = Path(__file__).stem.replace("_", "-")
+
     parser = argparse.ArgumentParser(
+        prog=f"memocli {action_name}" if is_memo_cli else None,
         description="解析并合并所有实体的缓冲更新块，完成‘梦境整理’。",
-        formatter_class=argparse.RawDescriptionHelpFormatter
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=f"用法示例:\n  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} --path . --reason \"定期梦境整理\""
     )
+    parser.add_argument("--memo-cli-call", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("-p", "--path", required=True, help="知识库根目录。")
     parser.add_argument("-r", "--reason", default="定期梦境整理", help="操作原因。")
     

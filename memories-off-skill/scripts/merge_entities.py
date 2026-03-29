@@ -98,14 +98,24 @@ def merge_entities(path: str, sources: list, target: str, reason: str):
     print(f"\n[SUCCESS] 合并操作圆满完成！")
 
 def main():
+    if "--memo-cli-info" in sys.argv:
+        print("Description: 将多个源实体内容合并到目标实体并清理源文件。")
+        print("Example: memocli merge-entities --path . --sources 人物-张三,人物-李四 --target 人物-王五 --reason \"重复录入\"")
+        sys.exit(0)
+
+    is_memo_cli = "--memo-cli-call" in sys.argv
+    action_name = Path(__file__).stem.replace("_", "-")
+
     parser = argparse.ArgumentParser(
+        prog=f"memocli {action_name}" if is_memo_cli else None,
         description="将多个源实体的内容合并到目标实体，自动更新全库引用并删除源实体。",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
+        epilog=f"""
 用法示例:
-  python merge_entities.py --path . --sources 人物-张三,人物-李四 --target 人物-王五 --reason "重复录入"
+  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} --path . --sources 人物-张三,人物-李四 --target 人物-王五 --reason "重复录入"
         """
     )
+    parser.add_argument("--memo-cli-call", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("-p", "--path", required=True, help="知识库根目录。")
     parser.add_argument("-s", "--sources", required=True, help="源实体名称列表，逗号分隔。")
     parser.add_argument("-t", "--target", required=True, help="目标实体名称。")

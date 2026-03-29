@@ -93,14 +93,24 @@ def rename_entity(path: str, old_name: str, new_name: str, reason: str):
     print("</rename_report>")
 
 def main():
+    if "--memo-cli-info" in sys.argv:
+        print("Description: 重命名实体文件并自动更新全库范围内的 WikiLinks 引用。")
+        print("Example: memocli rename --path . --old 旧名称 --new 新名称 --reason \"原因\"")
+        sys.exit(0)
+
+    is_memo_cli = "--memo-cli-call" in sys.argv
+    action_name = Path(__file__).stem.replace("_", "-")
+
     parser = argparse.ArgumentParser(
+        prog=f"memocli {action_name}" if is_memo_cli else None,
         description="安全重命名实体文件，并自动同步更新库内所有 WikiLinks 和语义关系。",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
+        epilog=f"""
 用法示例:
-  python rename.py --path . --old 人物-张三 --new 人物-张小三 --reason "修正姓名"
+  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} --path . --old 人物-张三 --new 人物-张小三 --reason "修正姓名"
         """
     )
+    parser.add_argument("--memo-cli-call", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("-p", "--path", required=True, help="知识库根目录。")
     parser.add_argument("--old", required=True, help="原实体名称（不含 .md）。")
     parser.add_argument("--new", required=True, help="新实体名称（不含 .md）。")

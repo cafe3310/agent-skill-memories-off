@@ -74,10 +74,24 @@ def merge_types(path: str, sources: list, target: str, reason: str):
     print(f"[SUCCESS] 已完成 {len(affected_entities)} 个实体的类型合并。")
 
 def main():
+    if "--memo-cli-info" in sys.argv:
+        print("Description: 全库范围内将一个或多个实体类型合并为目标类型。")
+        print("Example: memocli merge-types --path . --sources 源类型1,源类型2 --target 目标类型 --reason \"原因\"")
+        sys.exit(0)
+
+    is_memo_cli = "--memo-cli-call" in sys.argv
+    action_name = Path(__file__).stem.replace("_", "-")
+
     parser = argparse.ArgumentParser(
+        prog=f"memocli {action_name}" if is_memo_cli else None,
         description="将多个源类型合并到目标类型中，同步更新元数据。",
-        formatter_class=argparse.RawDescriptionHelpFormatter
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=f"""
+用法示例:
+  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} --path . --sources 源类型1,源类型2 --target 目标类型 --reason "合并重复项"
+        """
     )
+    parser.add_argument("--memo-cli-call", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("-p", "--path", required=True, help="知识库根目录。")
     parser.add_argument("-s", "--sources", required=True, help="源类型名称列表（逗号分隔）。")
     parser.add_argument("-t", "--target", required=True, help="目标类型名称。")

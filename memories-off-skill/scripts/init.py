@@ -51,15 +51,21 @@ def init_library(path: str, name: str):
     print("\n[SUCCESS] 知识库初始化成功！")
 
 def main():
+    if "--memo-cli-info" in sys.argv:
+        print("Description: 在指定目录下初始化一个新的 Memories-Off 知识库（meta.md + entities/）。")
+        print("Example: memocli init --path ./my_kb --name \"我的知识库\"")
+        sys.exit(0)
+
+    is_memo_cli = "--memo-cli-call" in sys.argv
+    action_name = Path(__file__).stem.replace("_", "-")
+
     parser = argparse.ArgumentParser(
+        prog=f"memocli {action_name}" if is_memo_cli else None,
         description="初始化一个符合 memories-off 规范的 Git 驱动知识库。",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-用法示例:
-  python init.py --path ./my_kb --name "我的知识库"
-  python init.py -p ./kb -n "PersonalKB"
-        """
+        epilog=f"用法示例:\n  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} --path ./my_kb --name \"我的知识库\"\n  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} -p ./kb -n \"PersonalKB\""
     )
+    parser.add_argument("--memo-cli-call", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("-p", "--path", required=True, help="知识库的根目录路径。")
     parser.add_argument("-n", "--name", required=True, help="知识库显示的名称。")
     

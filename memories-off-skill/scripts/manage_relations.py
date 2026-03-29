@@ -82,15 +82,21 @@ def manage_relation(path: str, entity_name: str, action: str, predicate: str, ta
         print(f"[WARN] 文件已更新但自动提交失败: {e}")
 
 def main():
+    if "--memo-cli-info" in sys.argv:
+        print("Description: 在实体 Frontmatter 中增加或删除显式语义关系。")
+        print("Example: memocli manage-relations --path . --entity 人物-cafe3310 --action add --predicate 负责人 --target 概念-Memory-Skill --reason \"项目立项\"")
+        sys.exit(0)
+
+    is_memo_cli = "--memo-cli-call" in sys.argv
+    action_name = Path(__file__).stem.replace("_", "-")
+
     parser = argparse.ArgumentParser(
+        prog=f"memocli {action_name}" if is_memo_cli else None,
         description="管理实体的语义关系，自动处理元数据更新与审计。",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-用法示例:
-  python manage_relations.py --path . --entity 人物-cafe3310 --action add --predicate 负责人 --target 概念-Memory-Skill --reason "项目立项"
-  python manage_relations.py -p . -e 宠物-咪咪 -a delete -t 人物-cafe3310 -pr 所有者 -r "变更关系"
-        """
+        epilog=f"用法示例:\n  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} --path . --entity 人物-cafe3310 --action add --predicate 负责人 --target 概念-Memory-Skill --reason \"项目立项\"\n  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} -p . -e 宠物-咪咪 -a delete -t 人物-cafe3310 -pr 所有者 -r \"变更关系\""
     )
+    parser.add_argument("--memo-cli-call", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("-p", "--path", required=True, help="知识库根目录。")
     parser.add_argument("-e", "--entity", required=True, help="要修改的实体名称。")
     parser.add_argument("-a", "--action", choices=["add", "delete"], required=True, help="执行动作：添加或删除。")

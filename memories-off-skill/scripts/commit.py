@@ -54,15 +54,21 @@ def commit_changes(path: str, action: str, target: str, reason: str):
         sys.exit(1)
 
 def main():
+    if "--memo-cli-info" in sys.argv:
+        print("Description: 知识库变更的标准化 Git 提交工具（Audit Log）。")
+        print("Example: memocli commit --path . --action edit --target 人物-cafe3310 --reason \"更新了技能列表\"")
+        sys.exit(0)
+
+    is_memo_cli = "--memo-cli-call" in sys.argv
+    action_name = Path(__file__).stem.replace("_", "-")
+
     parser = argparse.ArgumentParser(
+        prog=f"memocli {action_name}" if is_memo_cli else None,
         description="封装 Git 提交逻辑，生成符合 memories-off 规范的审计消息。",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-用法示例:
-  python commit.py --path . --action edit --target 人物-cafe3310 --reason "更新了技能列表"
-  python commit.py -p ./kb -a create -t 宠物-咪咪 -r "新增猫咪档案"
-        """
+        epilog=f"用法示例:\n  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} --path . --action edit --target 人物-cafe3310 --reason \"更新了技能列表\"\n  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} -p ./kb -a create -t 宠物-咪咪 -r \"新增猫咪档案\""
     )
+    parser.add_argument("--memo-cli-call", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("-p", "--path", required=True, help="知识库的根目录路径。")
     parser.add_argument("-a", "--action", required=True, choices=["create", "edit", "rename", "delete", "fix", "init"], 
                         help="执行的操作类型。")

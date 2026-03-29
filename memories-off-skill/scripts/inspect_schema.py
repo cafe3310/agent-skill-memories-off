@@ -63,16 +63,21 @@ def inspect_schema(path: str, mode: str):
     print("</schema_inspection_report>")
 
 def main():
+    if "--memo-cli-info" in sys.argv:
+        print("Description: 检查并输出知识库的元数据 Schema 详情。")
+        print("Example: memocli inspect-schema --path . --mode types")
+        sys.exit(0)
+
+    is_memo_cli = "--memo-cli-call" in sys.argv
+    action_name = Path(__file__).stem.replace("_", "-")
+
     parser = argparse.ArgumentParser(
+        prog=f"memocli {action_name}" if is_memo_cli else None,
         description="扫描知识库资产，获取已定义的实体类型和元数据键名枚举。",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-用法示例:
-  python inspect_schema.py --path . --mode types
-  python inspect_schema.py -p ./kb -m keys
-  python inspect_schema.py -p ./kb -m all
-        """
+        epilog=f"用法示例:\n  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} --path . --mode types\n  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} -p ./kb -m keys\n  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} -p ./kb -m all"
     )
+    parser.add_argument("--memo-cli-call", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("-p", "--path", required=True, help="知识库根目录。")
     parser.add_argument("-m", "--mode", choices=["types", "keys", "all"], default="all",
                         help="检查模式：types (类型), keys (键名), all (全部)。")

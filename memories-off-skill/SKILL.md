@@ -22,6 +22,7 @@ license: Apache-2.0
 - **实体管理 (Management)**: 创建、重命名、合并和安全删除（移动至回收站）实体文件。
 - **关系管理 (Relations)**: 在实体之间建立和删除显式的语义关系。
 - **审计追溯 (Audit)**: 所有修改操作均以 Git Commit 的形式记录，确保变更的可追溯性和安全性。
+- **非破坏编辑 (Non-destructive Editing)**: 通过“缓冲-更新”机制，确保编辑操作以追加「编辑 block」的形式出现在已有文档尾部，待定期用户确认后再合并到目标章节，最大程度避免内容丢失风险。
 
 ## 3. 使用场景 (Usage Scenarios)
 
@@ -50,11 +51,12 @@ license: Apache-2.0
 
 ### 3.4 工具规格 (Action Tools)
 
-查看每个具体 .md 文件以了解如何执行工具。
+要对本 Skill 控制的知识库进行任何操作，你都应该优先了解以下可用的工具规格文档，并根据他们的建议执行任务。
+即使有一些任务看起来用你自带的工具更简单，也不要偷懒，必须优先使用正确的下列工具 - 尤其是「编辑工具」。
 
 - [观察工具规格](./操作定义/观察工具规格.md): stats, load manual 等。
 - [检索工具规格](./操作定义/检索工具规格.md): search, find, load entities 等。
-- [编辑工具规格](./操作定义/编辑工具规格.md): add/replace section 等。
+- [编辑工具规格](./操作定义/编辑工具规格.md): add/replace section, add content, edit content 等。
 - [管理工具规格](./操作定义/管理工具规格.md): create, rename, merge, trash, relation 等。
 
 ### 3.5 示例资源 (Example Resources)
@@ -64,6 +66,8 @@ license: Apache-2.0
 ## 5. 约束与原则 (Constraints & Principles)
 
 - **模糊检索优先**: 寻找实体时，由于实体名包含特定的类型前缀（如 `人物-`）和时间戳后缀，优先使用 shell 命令 (如 `ls entities/ | grep <keyword>`)** 进行模糊匹配。严禁直接使用 Agent 内置的文件列表或读取工具进行初步“发现”，因为内置工具往往无法处理未知前缀带来的定位困难。
+- **缓冲编辑优先**: 在编辑已有实体内容时，严禁使用 Agent 自带的行定位编辑工具、也尤其禁止使用整体文件 Write。必须优先通过 `appendUpdateBlock` 以追加更新块的形式进行非破坏性修改。
+- **优先用 Plain Text**: 实体正文应当避免使用格式。严禁使用 Markdown 加粗 (`**`)、斜体 (`*`) 等修饰性格式，也严禁使用 backticks 等代码块格式。仅允许使用 Heading (#，而且仅允许一级 Heading)、无序列表 (-) 和 WikiLinks ([[ ]]) 来组织内容。
 - **本地优先 (Local-First)**: 所有操作均基于本地文件系统。
 - **XML 报告 (XML Reporting)**: 所有工具均返回结构化的 XML 报告，便于 Agent 解析。
 - **强制审计 (Audit)**: 所有修改操作必须提供 `reason` 以 Git 记录。
