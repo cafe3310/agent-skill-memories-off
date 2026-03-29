@@ -63,6 +63,7 @@ license: Apache-2.0
 
 ## 5. 约束与原则 (Constraints & Principles)
 
+- **模糊检索优先**: 寻找实体时，由于实体名包含特定的类型前缀（如 `人物-`）和时间戳后缀，优先使用 shell 命令 (如 `ls entities/ | grep <keyword>`)** 进行模糊匹配。严禁直接使用 Agent 内置的文件列表或读取工具进行初步“发现”，因为内置工具往往无法处理未知前缀带来的定位困难。
 - **本地优先 (Local-First)**: 所有操作均基于本地文件系统。
 - **XML 报告 (XML Reporting)**: 所有工具均返回结构化的 XML 报告，便于 Agent 解析。
 - **强制审计 (Audit)**: 所有修改操作必须提供 `reason` 以 Git 记录。
