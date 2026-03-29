@@ -8,7 +8,7 @@
 
 ### 1.1 基础架构搭建
 - [ ] 1.1.1 初始化新的项目结构 (package.json, tsconfig.json, 基础目录)
-- [ ] 1.1.2 实现核心类型定义 (基于 `legacy/src/v2/editor/types.ts` 和优化建议)
+- [ ] 1.1.2 实现核心类型定义 (基于 `legacy-v3-dev/src/v2/editor/types.ts` 和优化建议)
 - [ ] 1.1.3 实现底层文件操作封装 (`file-ops.ts`)
 
 ### 1.2 核心编辑器 (Editor) 开发
@@ -35,5 +35,5 @@
 ---
 
 ## 已完成任务 (Done)
-- [x] 2026-03-28 项目结构重组，旧代码归档至 `legacy/`
+- [x] 2026-03-28 项目结构重组，旧代码归档至 `legacy-v3-dev/`
 - [x] 2026-03-28 更新项目章程 (`AGENTS.md`, `GEMINI.md`)，确立新开发战略
