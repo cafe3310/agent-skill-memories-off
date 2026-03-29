@@ -1,9 +1,11 @@
 ---
-entity type: Concept
+entity type: 概念, 技术方案
 date created: 2026-03-28
 date modified: 2026-03-28
 aliases: memories-off, 长期记忆工具
-status: draft
+status: 草稿
+relation as 负责人: Person-四盘
+relation as 关联: doc-todo-log-loop
 ---
 
 # 概念定义 (Definition)
