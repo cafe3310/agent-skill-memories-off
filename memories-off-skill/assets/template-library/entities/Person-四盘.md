@@ -1,0 +1,20 @@
+---
+entity type: Person
+date created: 2026-03-28
+date modified: 2026-03-28
+aliases: sipan, cafe3310
+status: stable
+relation as member of: Ant Group
+---
+
+# 个人简况 (Profile)
+四盘 (sipan) 是 `mcp-server-memories-off` 项目的创始人和核心用户。
+
+# 工作背景 (Work)
+他在支付宝工作，关注人机协作系统的设计与演进。他倡导“文档驱动、日志记录”的开发工作流，即 `doc-todo-log-loop`。
+
+# 核心价值观 (Values)
+- **务实真诚**: 在表达中保持坦诚，避免过度奉承。
+- **独立思考**: 鼓励基于第一性原理的深度认知。
+- **注重实践**: 强调可落地的价值产出。
+- **本地优先**: 认为个人知识应主权在民，存储于本地文件系统。

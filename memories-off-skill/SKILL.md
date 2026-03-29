@@ -49,10 +49,14 @@ license: Apache-2.0
 - [**隐式链接规范**](./关联定义/隐式链接规范.md): 定义基于 WikiLinks 的引用逻辑。
 
 ### 3.4 工具规格 (Action Tools)
-- [**观察工具规格**](./操作定义/观察工具规格.md): stats, load manual 等。
-- [**检索工具规格**](./操作定义/检索工具规格.md): search, find, load entities 等。
-- [**编辑工具规格**](./操作定义/编辑工具规格.md): add/replace section 等。
-- [**管理工具规格**](./操作定义/管理工具规格.md): create, rename, merge, trash, relation 等。
+- [观察工具规格](./操作定义/观察工具规格.md): stats, load manual 等。
+- [检索工具规格](./操作定义/检索工具规格.md): search, find, load entities 等。
+- [编辑工具规格](./操作定义/编辑工具规格.md): add/replace section 等。
+- [管理工具规格](./操作定义/管理工具规格.md): create, rename, merge, trash, relation 等。
+
+### 3.5 示例资源 (Example Resources)
+- [模板知识库 (Template Library)](./assets/template-library/): 提供符合全套规范的目录结构、`meta.md` 手册及各种实体类型的 Markdown 示例。Agent 应参考此结构进行库初始化或内容格式化。
+
 
 ## 5. 约束与原则 (Constraints & Principles)
 
