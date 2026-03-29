@@ -71,8 +71,41 @@ class MetadataParser:
         for line in yaml_text.splitlines():
             if ":" in line:
                 key, val = line.split(":", 1)
+                # 键名强制小写以保持规范一致性
                 metadata[key.strip().lower()] = val.strip()
         return metadata
+
+    @staticmethod
+    def serialize(metadata: Dict[str, str]) -> str:
+        """
+        将元数据字典序列化为标准 YAML Frontmatter。
+        """
+        lines = ["---"]
+        # 按照特定顺序排列（可选，但有助于美观）
+        # 优先排列 entity type, date created, date modified 等核心字段
+        core_keys = ["entity type", "date created", "date modified", "aliases"]
+        seen_keys = set()
+        
+        for k in core_keys:
+            if k in metadata:
+                lines.append(f"{k}: {metadata[k]}")
+                seen_keys.add(k)
+        
+        for k, v in sorted(metadata.items()):
+            if k not in seen_keys:
+                lines.append(f"{k}: {v}")
+        
+        lines.append("---\n")
+        return "\n".join(lines)
+
+    @staticmethod
+    def split_content(content: str) -> tuple[Dict[str, str], str]:
+        """
+        将完整内容分离为元数据字典和正文部分。
+        """
+        metadata = MetadataParser.parse(content)
+        body = MetadataParser.FRONTMATTER_PATTERN.sub("", content).strip()
+        return metadata, body
 
     @staticmethod
     def normalize_name(name: str) -> str:
