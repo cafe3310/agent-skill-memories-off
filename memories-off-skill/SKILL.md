@@ -21,7 +21,7 @@ license: Apache-2.0
 - **内容编辑 (Editing)**: 在保持文档结构完整的情况下，精确追加或替换实体中的章节。
 - **实体管理 (Management)**: 创建、重命名、合并和安全删除（移动至回收站）实体文件。
 - **关系管理 (Relations)**: 在实体之间建立和删除显式的语义关系。
-- **审计追溯 (Audit)**: 所有修改操作均会记录在全局审计日志（`journey.md`）中。
+- **审计追溯 (Audit)**: 所有修改操作均以 Git Commit 的形式记录，确保变更的可追溯性和安全性。
 
 ## 3. 使用场景 (Usage Scenarios)
 
@@ -62,5 +62,5 @@ license: Apache-2.0
 
 - **本地优先 (Local-First)**: 所有操作均基于本地文件系统。
 - **XML 报告 (XML Reporting)**: 所有工具均返回结构化的 XML 报告，便于 Agent 解析。
-- **强制审计 (Audit)**: 所有修改操作必须提供 `reason` 并记录到 `journey.md`。
+- **强制审计 (Audit)**: 所有修改操作必须提供 `reason` 以 Git 记录。
 - **通用语言 (Glossary)**: 严格遵守 [项目术语表](../docs/2026-01-03-15-39-glossary.md) 的定义。
