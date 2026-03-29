@@ -1,14 +1,15 @@
-# mcp-server-memories-off
+# memories-off
 
 ## 愿景
 
-提供一个轻量级知识管理 MCP 服务，让你的 LLM 可以长期持续学习、输出、使用知识。
+提供一个极简、结构化的本地知识管理方案，让你的 Agent 具备真正的“长期记忆”。
 
-该服务希望帮助个人或小型项目从日常文本、对话、项目笔记等，结构化地提取和整合实体和其间的关系，让知识的捕捉与整理变得顺畅。
+通过一套标准化的 Markdown 实体规范和配套的自动化脚本，`memories-off` 允许 Agent 像管理代码仓库一样管理你的个人知识。它能从日常对话、文档、项目中提取知识点，并以 Git 驱动的方式维护一个可审计、可回滚的本地知识库。
 
-进而，这个服务也许能协助你搭建个性化的知识助手，在沟通、管理、项目梳理、信息整合加工等方面，以「模仿你」的形式提供帮助。
+> 目前这个 project 从早期的 MCP Server 更换为 Agent Skill（包含 python script） 架构，如果仍需使用旧版 MCP 服务，可以 checkout `v2` 分支。
+> 旧版本的文档和构建方式请参考该 tag 下的 `README.md`。
 
-其初始版本基于 [Anthropic 的 memory mcp](https://github.com/modelcontextprotocol/servers/blob/main/src/memory/README.md)。
+这个项目的初始版本基于 [Anthropic 的 memory mcp](https://github.com/modelcontextprotocol/servers/blob/main/src/memory/README.md)。
 
 ## 特性目标
 
@@ -28,53 +29,46 @@
 
 ## 应用例子
 
-### 个人使用场景
+### 个人使用
 
 - **提取知识**：将文档、日常对话或大段聊天记录发给 LLM，自动提取关键知识点、人物、项目信息、协作关系、个人风格等，构建你的专属知识库。
 - **个性化内容生成**：借助知识图谱，LLM 能更好地理解你的思考习惯和人际网络，有针对性地模仿你的表达，生成符合你个性风格的沟通、总结或项目文档。
 
-### 项目使用场景
+### 项目使用
 
 - **项目知识库**：小团队可用作项目级别的知识库，持续积累和管理知识，比如联合支付能力 MCP 服务，记录用户购物偏好、行为习惯等。
 - **优化 Agent 服务质量**：让你的 Agent 记住更多历史数据与业务诉求，动态调整流程或输出，如记住并优化利用支付能力 MCP 服务推销时的有效策略，提高应用场景中的转化率与满意度。
 
-## 配置例子
+## 快速开始
 
-该 package 已经发布在 [npmjs](https://www.npmjs.com/package/mcp-server-memories-off) , 可以在任何支持 mcp 协议的 LLM 客户端中配置：
+### 1. 安装 Skill
 
-**命令行：**
+该工具的 skill 版本在 `memories-off-skill` 目录下，包含了实现核心功能的 Python 脚本和一个示例模板库。
 
-`npx -y mcp-server-memories-off`
+将本项目链接或复制到您的 Agent Skill 目录中（例如 `~/.agents/skills/memories-off-skill`）。
 
-**环境变量：**
+### 2. 初始化知识库
 
-| 环境变量      | 说明                         | 默认值                             |
-|---------------|------------------------------|---------------------------------|
-| MEM_NAME      | 工具名称                     | memory                          |
-| MEM_PATH      | 知识图谱存储文件路径         | $HOME/mcp-server-memories-off.yaml |
-| MEM_LOG_DIR   | 日志文件目录                 | 系统临时目录（如 \tmp\）                 |
+Agent 可以调用脚本快速建立符合规范的库结构。告知其加载 skill 并初始化一个仓库即可。
 
-**一个典型配置：**
+### 3. 建议的 agent 系统提示词
 
-```json5
-// in mcp.json
-{
-  // ... ...
-  "memory": {
-    "command": "npx",
-    "args": [ "-y", "mcp-server-memories-off" ],
-    "env": { "MEM_PATH": "你的路径" }
-  },
-  // ... ...
-}
-```
+你可以参考 `prompts/个人助手.md` 中的示例提示词，或根据需要自定义提示词来指导 Agent 如何使用 `memories-off`。
 
-## 如何构建
+### 4. 可用的工具和大体描述
 
-构建：
+#### 知识库结构
 
-`bun run build`
+- `meta.md` 是知识库的规章，定义了实体的分类（Schema）、关联规则和谓词定义。
+- `entities/`：存放所有知识实体的目录。每个实体都是一个 `.md` 文件，包含 YAML Frontmatter（元数据）和 Markdown Body（正文）。
+- 整个知识库是一个 Git 仓库，所有的增删改操作都会产生原子化的 Commit 记录。
 
-运行：
+#### 如何指挥 Agent 使用
 
-`node ..../dist/index.js`
+你可以像这样对你的 Agent 发出指令：
+
+- 加载 memories-off 技能，并在当前目录初始化一个名为‘我的生活’的知识库。
+- 先看下我的知识库里现在都有什么（Agent 会运行 `stats.py`），搜索关于‘理财’的笔记。
+- 把刚才关于五一出行的讨论记录下来，建立一个「计划」类型的实体，并关联到「cafe3310」。
+- 审计一下库里的引用有没有断掉的；把「张三」和「张小三」这两个实体合并了。
+- 我已经手动改了 `meta.md`，你帮我提交一下，理由是「更新了人物关系定义」。
