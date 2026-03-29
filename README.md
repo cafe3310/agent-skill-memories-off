@@ -41,30 +41,50 @@
 
 ## 快速开始
 
-### 1. 安装 Skill
+### 安装 Skill 与 CLI
 
-该工具的 skill 版本在 `memories-off-skill` 目录下，包含了实现核心功能的 Python 脚本和一个示例模板库。
+本项目目前以 Agent Skill 的形式提供服务，包含一个 cli 工具 `memocli`，它是对内部 Python 脚本的封装。
 
-将本项目链接或复制到您的 Agent Skill 目录中（例如 `~/.agents/skills/memories-off-skill`）。
+1. 将本项目链接或复制到您的 Agent Skill 目录中（例如 `~/.agents/skills/memories-off-skill`）。
+2. **安装命令行工具 `memocli`**。
+   你可以让 Agent 帮你安装。说「帮我安装 memories-off-skill 的命令行工具 `memocli`」即可。
+   或者手动在终端安装：
+   ```bash
+   cd memories-off-skill
+   python3 scripts/install.py
+   ```
+   安装脚本 `install.py` 会自动探测路径并将 `memocli` 包装器安装到您的系统 `PATH` 中。
 
-### 2. 初始化知识库
+### 使用 memocli 管理知识库
 
-Agent 可以调用脚本快速建立符合规范的库结构。告知其加载 skill 并初始化一个仓库即可。
+`memocli` 是对 Skill 内部底层 Python 脚本的封装。
 
-### 3. 建议的 agent 系统提示词
+- **查看库状态**：直接运行 `memocli stats`（在库根目录下无需指定 `--path`）。
+- **初始化知识库**：`memocli init --path ./my_knowledge`。
+- **创建新实体**：`memocli create_entity --name "五一计划" --type "计划" --reason "准备假期"`。
+- **获取帮助**：
+  - `memocli --help`：查看所有可用子命令及其一句话描述。
+  - `memocli <subcommand> --help`：查看特定命令的详细参数和示例。
+
+### Agent 集成建议
 
 你可以参考 `prompts/个人助手.md` 中的示例提示词，或根据需要自定义提示词来指导 Agent 如何使用 `memories-off`。
 
-### 4. 可用的工具和大体描述
+在系统提示词（System Prompt）中，建议明确指示 Agent：
+- 优先使用 `memocli` 进行所有知识库操作。
+- 告诉 Agent，如果它正在知识库根目录工作，可以不必提供 `--path` 参数。
 
-#### 知识库结构
+## 设计与工具
 
-- `meta.md` 是知识库的规章，定义了实体的分类（Schema）、关联规则和谓词定义。
-- `entities/`：存放所有知识实体的目录。每个实体都是一个 `.md` 文件，包含 YAML Frontmatter（元数据）和 Markdown Body（正文）。
-- 整个知识库是一个 Git 仓库，所有的增删改操作都会产生原子化的 Commit 记录。
+### 知识库结构
 
-#### 如何指挥 Agent 使用
+- `meta.md`：核心规章，定义实体类型（Schema）与关系谓词。
+- `entities/`：存放所有 `.md` 格式的知识实体。
+- Git 审计：所有由脚本触发的修改都会产生一条带有 `reason` 的 Git Commit，确保变更可追溯。
 
+### 常用指令示例
+
+你可以像这样指挥你的 Agent：
 你可以像这样对你的 Agent 发出指令：
 
 - 加载 memories-off 技能，并在当前目录初始化一个名为‘我的生活’的知识库。

@@ -31,6 +31,28 @@ license: Apache-2.0
 - **个性化建议**: 基于长期积累的知识库为用户提供定制化的反馈。
 - **复杂查询**: 跨多个实体查找特定主题的信息，并进行综合分析。
 
+## 3. 安装与命令行工具 (Installation & CLI)
+
+本 Skill 提供了一个强大的命令行包装器 `memocli`，它是操作 `memories-off` 知识库的统一入口。
+
+### 3.1 安装方式
+运行 `python3 scripts/install.py`。该安装器会自动执行以下任务：
+- **路径探测**：自动确定 Skill 的绝对路径并注入包装器。
+- **权限管理**：尝试安装到 `/usr/local/bin` 或 `~/.local/bin`，并自动设置可执行权限。
+- **元数据发现**：在安装阶段通过协议自动发现所有子命令的描述，生成静态帮助列表以确保运行时的高响应速度。
+
+### 3.2 智能特性 (Smart Features)
+- **智能路径注入**：在知识库根目录（包含 `meta.md`）下执行时，若省略 `--path` 或 `-p` 参数，`memocli` 会自动追加 `--path .`，极大简化了 Agent 的调用逻辑。
+- **自适应帮助系统**：
+    - `memocli --help`：全局帮助顶部会显示本 Skill 的名称及 `SKILL.md` 的完整物理路径，方便追溯规范定义。
+    - `memocli <subcommand> --help`：自动在底层帮助前插入包装器提示，并动态调整示例代码。
+- **提示一致性**：通过 `prog` 参数适配，所有报错和用法提示均显示为 `memocli <subcommand>`，不再暴露底层的 `.py` 文件名。
+
+### 3.3 协议规范 (memocli Protocol)
+为了保持工具链的可扩展性，所有位于 `scripts/` 下的业务脚本均遵循以下协议：
+- `--memo-cli-info`：返回 `Description`（一句话说明）和 `Example`（调用示例）。
+- `--memo-cli-call`：标识位。当存在时，脚本应调整其 `argparse` 的 `prog` 名称和用法示例以匹配 `memocli` 格式。
+
 ## 4. 关键规范 (Key Specifications)
 
 本 Skill 的详细逻辑由以下子目录中的文档定义，建议按顺序阅读：
