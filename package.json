@@ -1,6 +1,6 @@
 {
   "name": "mcp-server-memories-off",
-  "version": "1.0.0",
+  "version": "2.0.1",
   "description": "remember this and that",
   "bin": {
     "mcp-server-memories-off": "dist/index.js"
@@ -22,7 +22,7 @@
     "watch": "bun build ./src/index.ts --target=node --outdir=dist --outfile=dist/index.js --watch",
     "build": "bun build ./src/index.ts --minify --target=node --outdir=dist --outfile=dist/index.js",
     "lint": "bunx eslint ./src",
-    "pub-patch": "bun run build && npm version patch && tnpm publish"
+    "pub-patch": "bun run build && npm version patch && npm publish"
   },
   "repository": {
     "type": "git",
