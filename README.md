@@ -1,5 +1,7 @@
 # memories-off
 
+[![SafeSkill 81/100](https://img.shields.io/badge/SafeSkill-81%2F100_Passes%20with%20Notes-yellow)](https://safeskill.dev/scan/cafe3310-agent-skill-memories-off)
+
 ## 愿景
 
 提供一个极简、结构化的本地知识管理方案，让你的 Agent 具备长期记忆，且文档对人类阅读和编辑也足够友好。
