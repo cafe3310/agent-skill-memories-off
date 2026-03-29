@@ -59,7 +59,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 用法示例:
-  python commit.py --path . --action edit --target 人物-四盘 --reason "更新了技能列表"
+  python commit.py --path . --action edit --target 人物-cafe3310 --reason "更新了技能列表"
   python commit.py -p ./kb -a create -t 宠物-咪咪 -r "新增猫咪档案"
         """
     )

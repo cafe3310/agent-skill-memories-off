@@ -4,7 +4,7 @@ date created: 2026-03-28
 date modified: 2026-03-28
 aliases: memories-off, 长期记忆工具
 status: 草稿
-relation as 负责人: 人物-四盘
+relation as 负责人: 人物-cafe3310
 ---
 
 # 概念定义 (Definition)
@@ -16,5 +16,5 @@ relation as 负责人: 人物-四盘
 - **通用语言**: 统一使用 `Heading`, `Section`, `Content`, `TOC` 等术语。
 
 # 相关实体 (Relations)
-- **创始人**: [[人物-四盘]]
+- **创始人**: [[人物-cafe3310]]
 - **存储方案**: 基于文件系统。

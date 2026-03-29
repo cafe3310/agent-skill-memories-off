@@ -79,7 +79,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 用法示例:
-  python get_relations.py --path . --entity 人物-四盘
+  python get_relations.py --path . --entity 人物-cafe3310
   python get_relations.py -p ./kb -e 宠物-咪咪 --type 消耗
         """
     )
