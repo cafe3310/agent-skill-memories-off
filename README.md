@@ -41,6 +41,10 @@
 
 ## 快速开始
 
+### 如果你已经有 Coding Agent
+
+可以告诉它「Clone 这个仓库 https://github.com/cafe3310/agent-skill-memories-off/ 到临时目录，阅读其 README.md，将其 memories-off-skill 目录安装到我们的 Agent Skill 目录，然后执行其内部的 scripts/install.py 以安装 CLI 工具」。
+
 ### 安装 Skill 与 CLI
 
 本项目目前以 Agent Skill 的形式提供服务，包含一个 cli 工具 `memocli`，它是对内部 Python 脚本的封装。
