@@ -34,7 +34,9 @@ def create_memocli():
                     if line.startswith("Description:"):
                         desc = line.replace("Description:", "").strip()
                         break
-                subcommands_info.append(f"    echo \"  {name:<20} - {desc}\"")
+                # 关键修复：转义描述中的双引号，防止破坏 Bash 脚本语法
+                safe_desc = desc.replace('"', '\\"')
+                subcommands_info.append(f"    echo \"  {name:<20} - {safe_desc}\"")
             else:
                 subcommands_info.append(f"    echo \"  {name:<20} - (无法获取描述)\"")
         except Exception:

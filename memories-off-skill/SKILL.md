@@ -88,8 +88,8 @@ license: Apache-2.0
 ## 5. 约束与原则 (Constraints & Principles)
 
 - 严禁在不了解 `memocli` 可用子命令的情况下直接读取库内文档或执行复杂任务，新环境或新任务中，应首先运行 `memocli --help`。
-- **模糊检索优先 (Content-Grep First)**: 了解已有信息时，可以对 `entities/` 目录进行全文检索，如 `grep -ie <keywords_regex> -C2` ，寻找隐藏在实体正文中的碎片化信息。
-- **缓冲编辑优先**: 在编辑已有实体内容时，严禁使用 Agent 自带的行定位编辑工具、也尤其禁止使用整体文件 Write。必须优先通过 `appendUpdateBlock` 以追加更新块的形式进行非破坏性修改。
+- **模糊检索优先 (Content-Grep First)**: 了解已有信息时，必须优先使用 `memocli search` 配合关键词或正则表达式进行全局或局部检索。当只需要实体列表时，应使用 `--names-only` 以节省上下文 Token。
+- **缓冲编辑优先**: 在编辑已有实体内容时，严禁使用 Agent 自带的行定位编辑工具、也尤其禁止使用整体文件 Write。必须优先通过 `appendUpdateBlock` (对应 `memocli append_update`) 以追加更新块的形式进行非破坏性修改。
 - **优先用 Plain Text**: 实体正文应当避免使用格式。严禁使用 Markdown 加粗 (`**`)、斜体 (`*`) 等修饰性格式，也严禁使用 backticks 等代码块格式。仅允许使用 Heading (#，而且仅允许一级 Heading)、无序列表 (-) 和 WikiLinks ([[ ]]) 来组织内容。
 - **本地优先 (Local-First)**: 所有操作均基于本地文件系统。
 - **XML 报告 (XML Reporting)**: 所有工具均返回结构化的 XML 报告，便于 Agent 解析。
