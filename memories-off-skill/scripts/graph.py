@@ -27,8 +27,8 @@ HTML_TEMPLATE = """
             z-index: 100;
         }
     </style>
-    <script src="https://unpkg.com/three"></script>
-    <script src="https://unpkg.com/react-force-graph-3d"></script>
+    <!-- 核心依赖: 3d-force-graph (Vanilla JS 版，自带 Three.js) -->
+    <script src="https://unpkg.com/3d-force-graph"></script>
 </head>
 <body>
     <div id="graph-container"></div>
@@ -43,6 +43,7 @@ HTML_TEMPLATE = """
         const gData = {DATA_JSON};
 
         const elem = document.getElementById('graph-container');
+        // 使用 3d-force-graph 的标准 API
         const Graph = ForceGraph3D()(elem)
             .graphData(gData)
             .nodeLabel(node => `${node.type}: ${node.display_name}`)
