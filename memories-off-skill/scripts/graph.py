@@ -21,14 +21,23 @@ HTML_TEMPLATE = """
         #graph-container { width: 100vw; height: 100vh; }
         #info-panel {
             position: absolute; top: 10px; left: 10px;
-            color: #ccc; background: rgba(0,0,0,0.6);
-            padding: 10px; border-radius: 4px; pointer-events: none;
-            font-size: 12px; border: 1px solid #333;
-            z-index: 100;
+            color: #ccc; background: rgba(0,0,0,0.8);
+            padding: 15px; border-radius: 8px;
+            font-size: 13px; border: 1px solid #444;
+            z-index: 100; line-height: 1.6;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
+        .control-group { margin-top: 10px; border-top: 1px solid #333; padding-top: 10px; }
+        label { cursor: pointer; display: flex; align-items: center; gap: 8px; }
+        input[type="checkbox"] { cursor: pointer; }
     </style>
-    <!-- 核心依赖: 3d-force-graph (Vanilla JS 版，自带 Three.js) -->
-    <script src="https://unpkg.com/3d-force-graph"></script>
+    <script>
+        // 修复部分库在浏览器环境下的环境探测错误
+        var exports = {};
+    </script>
+    <!-- 核心依赖: 使用明确的 UMD 构建版本 -->
+    <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/3d-force-graph@1.73.0/dist/3d-force-graph.min.js"></script>
 </head>
 <body>
     <div id="graph-container"></div>
@@ -36,33 +45,121 @@ HTML_TEMPLATE = """
         <strong>Memories-Off 3D Gravity KG</strong><br/>
         左键: 旋转 | 右键: 平移 | 滚轮: 缩放<br/>
         点击节点: 聚焦中心
+        <div class="control-group">
+            <label>
+                <input type="checkbox" id="show-labels" checked> 开启节点名称显示
+            </label>
+            <div style="font-size: 11px; color: #888; margin-top: 4px;">
+                (仅在靠近节点时自动显现)
+            </div>
+        </div>
     </div>
 
     <script>
         // 由 Python 注入的数据
         const gData = {DATA_JSON};
 
+        // 状态管理
+        const state = {
+            showLabels: true,
+            labelVisibilityDist: 250 // 相机距离阈值
+        };
+
         const elem = document.getElementById('graph-container');
-        // 使用 3d-force-graph 的标准 API
         const Graph = ForceGraph3D()(elem)
             .graphData(gData)
             .nodeLabel(node => `${node.type}: ${node.display_name}`)
             .nodeAutoColorBy('type')
-            .nodeVal(node => node.is_alias ? 2 : 10)
+            .nodeVal(node => {
+                if (node.is_alias) return 2;
+                // 基于文件大小进行根号缩放，最小 5，最大约 30
+                const size = Math.sqrt(node.file_size || 500) / 5;
+                return Math.min(Math.max(size, 5), 30);
+            })
             .linkDirectionalArrowLength(3.5)
             .linkDirectionalArrowRelPos(1)
             .linkCurvature(0.25)
             .linkWidth(link => link.is_alias_link ? 0.5 : 1)
             .onNodeClick(node => {
                 // 聚焦逻辑
-                const distance = 60;
+                const distance = 80;
                 const distRatio = 1 + distance/Math.hypot(node.x, node.y, node.z);
                 Graph.cameraPosition(
-                    { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio }, // new pos
-                    node, // lookAt ({x,y,z})
-                    2000  // transition ms
+                    { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio },
+                    node,
+                    2000
                 );
+            })
+            .nodeThreeObject(node => {
+                // 使用 Sprite 渲染文字标签
+                const sprite = new SpriteText(node.display_name);
+                sprite.color = 'white';
+                sprite.textHeight = 4;
+                sprite.padding = 2;
+                sprite.backgroundColor = 'rgba(0,0,0,0.4)';
+                sprite.borderRadius = 2;
+                
+                // 初始显隐逻辑由渲染循环控制，这里挂载自定义属性
+                node.__labelSprite = sprite;
+                return sprite;
+            })
+            .nodeThreeObjectExtend(true); // 保持球体，将文字作为扩展对象
+
+        // --- 引入 SpriteText (ForceGraph3D 常用配套库) ---
+        // 注意：由于是单文件，我们通过动态创建 Script 标签引入或直接用 Canvas 绘制
+        // 为了稳定性和速度，我们手动写一个简单的 Canvas 材质渲染器替代外部依赖
+        function SpriteText(text) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const fontSize = 48;
+            ctx.font = `${fontSize}px sans-serif`;
+            const textWidth = ctx.measureText(text).width;
+            
+            canvas.width = textWidth + 20;
+            canvas.height = fontSize + 20;
+            
+            ctx.font = `${fontSize}px sans-serif`;
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'white';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
+            const sprite = new THREE.Sprite(spriteMaterial);
+            
+            // 调整缩放比例
+            const aspect = canvas.width / canvas.height;
+            sprite.scale.set(aspect * 4, 4, 1);
+            sprite.position.y = 6; // 悬浮在节点上方
+            
+            return sprite;
+        }
+
+        // --- 动态控制标签显隐 ---
+        const uiToggle = document.getElementById('show-labels');
+        uiToggle.addEventListener('change', (e) => {
+            state.showLabels = e.target.checked;
+        });
+
+        // 在每一帧更新标签显隐
+        function updateLabels() {
+            const camPos = Graph.cameraPosition();
+            const nodes = Graph.graphData().nodes;
+            
+            nodes.forEach(n => {
+                if (n.__labelSprite) {
+                    const dist = Math.hypot(n.x - camPos.x, n.y - camPos.y, n.z - camPos.z);
+                    // 逻辑：开关开启 且 距离足够近
+                    const visible = state.showLabels && dist < state.labelVisibilityDist;
+                    n.__labelSprite.visible = visible;
+                }
             });
+            requestAnimationFrame(updateLabels);
+        }
+        updateLabels();
 
         // --- 自定义物理力: 类型引力 (Type-Centric Force) ---
         Graph.d3Force('type-gravity', (alpha) => {
@@ -145,12 +242,16 @@ class GraphExporter:
                     self.entity_map[raw_name] = e_id
                     self.entity_map[display_name] = e_id
                     
+                    # 获取文件大小 (用于节点尺寸映射)
+                    file_size = os.path.getsize(file) if file.exists() else 0
+                    
                     self.nodes.append({
                         "id": e_id,
                         "display_name": display_name,
                         "type": e_type,
                         "is_alias": False,
-                        "val": 10
+                        "file_size": file_size,
+                        "val": 10 # 默认 val，前端会根据 file_size 动态覆盖
                     })
                     
                     # 处理别名
