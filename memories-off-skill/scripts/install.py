@@ -68,7 +68,7 @@ SKILL_MD="{skill_md_path}"
 ACTION=$1
 
 # --- 1. 全局帮助处理 ---
-if [[ "$ACTION" == "--help" ]] || [[ "$ACTION" == "-h" ]] || [[ -z "$ACTION" ]]; then
+if [[ "$ACTION" == "--help" ]] || [[ "$ACTION" == "-h" ]] || [[ "$ACTION" == "help" ]] || [[ -z "$ACTION" ]]; then
     echo "Memories-Off CLI (memocli) - An Agent Skill Wrapper"
     echo "Skill Root: $SKILL_MD"
     echo "----------------------------------------------------------------------"
@@ -77,6 +77,10 @@ if [[ "$ACTION" == "--help" ]] || [[ "$ACTION" == "-h" ]] || [[ -z "$ACTION" ]];
     echo "参数简化说明:"
     echo "  如果在包含 meta.md 的目录下运行（知识库根目录），且未提供 --path 或 -p，"
     echo "  memocli 会自动追加 --path . 以简化操作。"
+    echo ""
+    echo "常用指令:"
+    echo "  memocli --help              显示此全局帮助"
+    echo "  memocli <subcommand> --help 显示特定子命令的详细用法"
     echo ""
     echo "可用子命令:"
 {subcommands_list_bash}
