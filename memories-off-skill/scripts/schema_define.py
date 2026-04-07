@@ -123,30 +123,39 @@ class MetadataParser:
 
 class CustomArgumentParser(argparse.ArgumentParser):
     """
-    定制化参数解析器，在保留标准错误提示的基础上，自动追加详细的用法帮助。
+    定制化参数解析器，在保留标准错误提示的基础上，自动输出符合 memocli-result 协议的错误报告。
     """
     def error(self, message):
-        # 1. 保留 argparse 标准的 usage 和 error 输出
+        # 1. 保留 argparse 标准的 usage 和 error 输出 (输出到 stderr)
         self.print_usage(sys.stderr)
         sys.stderr.write(f"{self.prog}: error: {message}\n")
 
-        # 2. 追加详细帮助引导
-        sys.stderr.write(f"\n{self.prog} 的详细用法参考：\n")
-        self.print_help(sys.stderr)
-        sys.stderr.write("\n")
+        # 2. 构造符合新协议的 XML 错误报告 (输出到 stdout，供 Agent 解析)
+        subcommand = self.prog.split()[-1] if " " in self.prog else self.prog
+        full_cmd = " ".join(sys.argv)
+        if "memocli" not in full_cmd and self.prog.startswith("memocli"):
+             full_cmd = f"memocli {subcommand} " + " ".join([a for a in sys.argv[1:] if a != "--memo-cli-call"])
+
+        print(f'\n<memocli-result subcommand="{subcommand}" reason="none" result="failed">')
+        print(f"  <source-sh>{full_cmd}</source-sh>")
+        print("  <content>参数验证失败，指令未执行。</content>")
+        print(f"  <error-detail>错误: {message}\n\n详细用法参考:\n")
+        self.print_help()
+        print("  </error-detail>")
+        print("</memocli-result>")
         
         sys.exit(2)
 
 class ScriptBase:
     """
-    Agent Skill 脚本基类，提供统一的输出格式和参数处理。
+    Agent Skill 脚本基类，提供模型优先的统一输出格式。
     """
     def __init__(self, action_name: str, description: str, example: str = ""):
         self.action_name = action_name
         self.description = description
         self.example = example
         self.is_memo_cli = "--memo-cli-call" in sys.argv
-        self.report_elements: List[str] = []
+        self.result_content: List[str] = []
         self._check_info()
         self.parser = self._init_parser()
         self.args: Any = None
@@ -161,7 +170,9 @@ class ScriptBase:
             sys.exit(0)
 
     def _init_parser(self) -> CustomArgumentParser:
-        prog = f"memocli {self.action_name}" if self.is_memo_cli else None
+        # 子命令展示时统一用中划线
+        display_name = self.action_name.replace("_", "-")
+        prog = f"memocli {display_name}" if self.is_memo_cli else None
         parser = CustomArgumentParser(
             prog=prog,
             description=self.description,
@@ -171,53 +182,62 @@ class ScriptBase:
         )
         parser.add_argument("--memo-cli-call", action="store_true", help=argparse.SUPPRESS)
         parser.add_argument("-p", "--path", required=True, help="知识库根目录路径。")
+        parser.add_argument("-r", "--reason", default="none", help="执行此操作的理由（用于审计）。")
         return parser
 
-    def add_element(self, tag: str, content: str = "", **attrs):
-        """向报告中添加一个 XML 元素"""
-        attr_str = " ".join([f'{k}="{v}"' for k, v in attrs.items()])
-        if attr_str:
-            attr_str = " " + attr_str
-        
-        if content:
-            # 简单的内容转义，防止破坏 XML 结构
-            safe_content = content.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-            self.report_elements.append(f"  <{tag}{attr_str}>{safe_content}</{tag}>")
-        else:
-            self.report_elements.append(f"  <{tag}{attr_str} />")
+    def add_result(self, message: str):
+        """向执行结果中添加一行人类可读的信息"""
+        self.result_content.append(message)
 
-    def log(self, message: str, level: str = "info"):
-        """记录一条日志"""
-        self.add_element("log", message, level=level, time=datetime.now().strftime("%H:%M:%S"))
+    def log(self, message: str):
+        """记录一条执行日志（目前映射到 add_result 以保持兼容）"""
+        self.add_result(f"[*] {message}")
 
-    def error(self, message: str, fatal: bool = True):
-        """记录业务逻辑错误并根据需要退出"""
-        self.add_element("error", message, fatal=str(fatal).lower())
-        if fatal:
-            self.finalize(success=False)
-            sys.exit(1)
+    def error(self, message: str, instruction: str = ""):
+        """记录业务逻辑错误并立即结束执行"""
+        self.finalize(success=False, error_msg=message, instruction=instruction)
+        sys.exit(1)
 
-    def finalize(self, success: bool = True):
-        """输出最终的 XML 报告并结束"""
-        root_tag = f"{self.action_name}_report"
-        print(f"<{root_tag} success=\"{str(success).lower()}\">")
+    def finalize(self, success: bool = True, error_msg: Optional[str] = None, instruction: str = ""):
+        """输出最终的统一 XML 报告"""
+        status = "success" if success else "failed"
+        reason = getattr(self.args, "reason", "none") if self.args else "none"
+        subcommand = self.action_name.replace("_", "-")
         
-        # 记录调用参数 (脱敏或精简)
-        arg_attrs = {k: v for k, v in vars(self.args).items() if k != "memo_cli_call"}
-        arg_attr_str = " ".join([f'{k}="{v}"' for k, v in arg_attrs.items()])
-        print(f"  <args {arg_attr_str} />")
+        # 构造原始指令字符串 (尽可能还原 memocli 风格)
+        full_cmd = " ".join(sys.argv)
+        if "memocli" not in full_cmd and self.is_memo_cli:
+             full_cmd = f"memocli {subcommand} " + " ".join([a for a in sys.argv[1:] if a != "--memo-cli-call"])
+
+        print(f'<memocli-result subcommand="{subcommand}" reason="{reason}" result="{status}">')
+        print(f"  <source-sh>{full_cmd}</source-sh>")
         
-        for element in self.report_elements:
-            print(element)
+        # 输出执行结果
+        print("  <content>")
+        for line in self.result_content:
+            # 简单的 XML 转义
+            safe_line = line.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            print(f"    {safe_line}")
+        print("  </content>")
+        
+        # 错误详情
+        if not success:
+            print("  <error-detail>")
+            if error_msg:
+                print(f"    原因: {error_msg}")
+            if instruction:
+                print(f"    指令: {instruction}")
+            print("  </error-detail>")
             
-        print(f"</{root_tag}>")
+        print("</memocli-result>")
 
     def setup(self):
         """解析参数并初始化上下文"""
         self.args = self.parser.parse_args()
         root_path = Path(self.args.path).resolve()
         if not root_path.exists():
-            self.error(f"路径不存在: {root_path}")
+            self.finalize(success=False, error_msg=f"路径不存在: {root_path}")
+            sys.exit(1)
         self.ctx = LibraryContext(root_path, root_path.name)
 
     def run(self):
