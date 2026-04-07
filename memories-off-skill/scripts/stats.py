@@ -76,11 +76,7 @@ def main():
         prog=f"memocli {action_name}" if is_memo_cli else None,
         description="获取 memories-off 知识库的全局资产统计报告。",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=f"""
-用法示例:
-  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} --path .
-  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} -p ./my_kb --commits 10
-        """
+        epilog=f"用法示例:\n  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} --path ."
     )
     parser.add_argument("--memo-cli-call", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("-p", "--path", required=True, help="知识库的根目录路径。")
