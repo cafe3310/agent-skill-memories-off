@@ -22,6 +22,9 @@ def create_memocli():
         if name in ["install", "schema_define"] or name.startswith("_"):
             continue
             
+        # 优先使用中划线展示
+        display_name = name.replace("_", "-")
+            
         try:
             # 运行脚本获取描述
             result = subprocess.run(
@@ -36,9 +39,9 @@ def create_memocli():
                         break
                 # 关键修复：转义描述中的双引号，防止破坏 Bash 脚本语法
                 safe_desc = desc.replace('"', '\\"')
-                subcommands_info.append(f"    echo \"  {name:<20} - {safe_desc}\"")
+                subcommands_info.append(f"    echo \"  {display_name:<20} - {safe_desc}\"")
             else:
-                subcommands_info.append(f"    echo \"  {name:<20} - (无法获取描述)\"")
+                subcommands_info.append(f"    echo \"  {display_name:<20} - (无法获取描述)\"")
         except Exception:
             subcommands_info.append(f"    echo \"  {name:<20} - (加载失败)\"")
 
@@ -88,6 +91,10 @@ if [[ "$ACTION" == "--help" ]] || [[ "$ACTION" == "-h" ]] || [[ "$ACTION" == "he
 fi
 
 shift # 移除 subcommand 准备处理 args
+
+# 兼容性处理：将中划线风格子命令映射到下划线脚本
+RAW_ACTION=$ACTION
+ACTION=$(echo "$RAW_ACTION" | tr '-' '_')
 
 SCRIPT_PATH="$SCRIPTS_DIR/$ACTION.py"
 
