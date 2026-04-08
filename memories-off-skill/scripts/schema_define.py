@@ -121,25 +121,40 @@ class MetadataParser:
         name = re.sub(r"-+", "-", name).strip("-")
         return name
 
+    @staticmethod
+    def normalize_predicate(predicate: str) -> str:
+        """
+        按照规范标准化关系谓词 (Relation Predicate)。
+        """
+        # 转小写，非单词字符替换为 _
+        predicate = predicate.lower().strip()
+        predicate = re.sub(r"[^\w]+", "_", predicate)
+        # 连续的 _ 合并
+        predicate = re.sub(r"_+", "_", predicate).strip("_")
+        return predicate
+
 class CustomArgumentParser(argparse.ArgumentParser):
     """
     定制化参数解析器，在保留标准错误提示的基础上，自动输出符合 memocli-result 协议的错误报告。
     """
     def error(self, message):
-        # 1. 保留 argparse 标准的 usage 和 error 输出 (输出到 stderr)
-        self.print_usage(sys.stderr)
-        sys.stderr.write(f"{self.prog}: error: {message}\n")
+        # 1. 信号: 输出到 stderr (极简摘要，满足标准监控)
+        sys.stderr.write(f"error: {message}\n(See stdout XML for full details)\n")
 
-        # 2. 构造符合新协议的 XML 错误报告 (输出到 stdout，供 Agent 解析)
+        # 2. 上下文: 构造符合新协议的 XML 错误报告 (输出到 stdout，包含全量纠错信息)
         subcommand = self.prog.split()[-1] if " " in self.prog else self.prog
         full_cmd = " ".join(sys.argv)
-        if "memocli" not in full_cmd and self.prog.startswith("memocli"):
-             full_cmd = f"memocli {subcommand} " + " ".join([a for a in sys.argv[1:] if a != "--memo-cli-call"])
+        if self.is_memo_cli:
+             # 还原成 memocli 风格的命令，移除内部参数 --memo-cli-call
+             args = [a for a in sys.argv[1:] if a != "--memo-cli-call"]
+             full_cmd = f"memocli {subcommand} " + " ".join(args)
 
-        print(f'\n<memocli-result subcommand="{subcommand}" reason="none" result="failed">')
+        print(f'<memocli-result subcommand="{subcommand}" reason="none" result="failed">')
         print(f"  <source-sh>{full_cmd}</source-sh>")
         print("  <content>参数验证失败，指令未执行。</content>")
-        print(f"  <error-detail>错误: {message}\n\n详细用法参考:\n")
+        print(f"  <error-detail>")
+        print(f"原因: {message}\n")
+        print(f"{self.prog} 的用法帮助供参考：")
         self.print_help()
         print("  </error-detail>")
         print("</memocli-result>")
@@ -180,6 +195,7 @@ class ScriptBase:
             epilog=f"Example:\n  {self.example}" if self.example else None,
             add_help=True
         )
+        parser.is_memo_cli = self.is_memo_cli # 注入属性供 error() 使用
         parser.add_argument("--memo-cli-call", action="store_true", help=argparse.SUPPRESS)
         parser.add_argument("-p", "--path", required=True, help="知识库根目录路径。")
         parser.add_argument("-r", "--reason", default="none", help="执行此操作的理由（用于审计）。")

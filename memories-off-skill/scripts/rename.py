@@ -1,128 +1,102 @@
 #!/usr/bin/env python3
-import argparse
 import sys
 import re
 from pathlib import Path
-from schema_define import LibraryContext, MetadataParser
+from schema_define import ScriptBase, MetadataParser
 
-def rename_entity(path: str, old_name: str, new_name: str, reason: str):
-    """
-    安全重命名实体，并自动更新全局引用。
-    """
-    root = Path(path).resolve()
-    ctx = LibraryContext(root, "Target Library")
-    
-    # 标准化新名称
-    new_name = MetadataParser.normalize_name(new_name)
-    
-    old_file = ctx.entities_path / f"{old_name}.md"
-    new_file = ctx.entities_path / f"{new_name}.md"
-    
-    if not old_file.exists():
-        print(f"[ERROR] 源文件不存在: {old_file}", file=sys.stderr)
-        sys.exit(1)
-    if new_file.exists():
-        print(f"[ERROR] 目标文件已存在: {new_file}", file=sys.stderr)
-        sys.exit(1)
+class RenameScript(ScriptBase):
+    def __init__(self):
+        super().__init__(
+            action_name="rename",
+            description="重命名实体文件并自动更新全库范围内的 WikiLinks 引用和语义关系。",
+            example="memocli rename --path . --old 旧名称 --new 新名称 --reason \"修正命名\""
+        )
+        self.parser.add_argument("--old", required=True, help="原实体名称（不含 .md）。")
+        self.parser.add_argument("--new", required=True, help="新实体名称（不含 .md）。")
 
-    print(f"[*] 正在重命名实体: {old_name} -> {new_name}")
-
-    # 1. 执行 Git MV
-    ctx.run_git(["mv", str(old_file), str(new_file)])
-    
-    # 2. 全局搜索并替换引用
-    # 匹配规则: 
-    #   - [[old_name]]
-    #   - relation as [谓词]: ..., old_name, ...
-    
-    # WikiLink 正则
-    wikilink_pattern = re.compile(re.escape(f"[[{old_name}]]"))
-    # Relation 正则 (处理逗号分隔)
-    relation_pattern = re.compile(rf"(relation as .*?:\s*)(.*)")
-
-    affected_files = []
-    
-    # 扫描所有 .md 文件 (entities + meta.md)
-    files_to_scan = list(ctx.entities_path.glob("*.md")) + [ctx.meta_path]
-    
-    for md_file in files_to_scan:
-        if not md_file.exists(): continue
+    def run(self):
+        self.setup()
         
-        with open(md_file, "r", encoding="utf-8") as f:
-            lines = f.readlines()
+        if self.args.reason == "none":
+            self.error("必须提供重命名理由 (--reason/-r)。", instruction="请补充理由后重试。")
+
+        ctx = self.ctx
+        old_name = self.args.old
+        new_name = MetadataParser.normalize_name(self.args.new)
         
-        changed = False
-        new_lines = []
-        for line in lines:
-            # 替换 WikiLinks
-            if f"[[{old_name}]]" in line:
-                line = wikilink_pattern.sub(f"[[{new_name}]]", line)
-                changed = True
+        old_file = ctx.entities_path / f"{old_name}.md"
+        new_file = ctx.entities_path / f"{new_name}.md"
+        
+        if not old_file.exists():
+            self.error(f"源文件不存在: {old_name}", instruction=f"请确认实体名称是否正确。")
+        
+        if new_file.exists():
+            self.error(f"目标文件已存在: {new_name}", instruction="请选择一个不同的新名称。")
+
+        self.add_result(f"正在重命名实体: {old_name} -> {new_name}")
+
+        # 1. 执行 Git MV (如果是在 Git 仓库中)
+        if ctx.is_git_repo():
+            ctx.run_git(["mv", str(old_file), str(new_file)])
+        else:
+            old_file.rename(new_file)
+        
+        # 2. 全局搜索并替换引用
+        wikilink_pattern = re.compile(re.escape(f"[[{old_name}]]"))
+        relation_pattern = re.compile(rf"(relation as .*?:\s*)(.*)")
+
+        affected_files = []
+        files_to_scan = list(ctx.entities_path.glob("*.md")) + [ctx.meta_path]
+        
+        for md_file in files_to_scan:
+            if not md_file.exists() or md_file == new_file: # 跳过已重命名的文件自身
+                continue
             
-            # 替换 Relation as (仅在元数据区或 Frontmatter 可能出现)
-            if "relation as" in line:
-                match = relation_pattern.match(line)
-                if match:
-                    prefix, targets = match.groups()
-                    # 拆分目标，精准替换
-                    target_list = [t.strip() for t in targets.split(",")]
-                    if old_name in target_list:
-                        new_target_list = [new_name if t == old_name else t for t in target_list]
-                        line = f"{prefix}{', '.join(new_target_list)}\n"
+            try:
+                with open(md_file, "r", encoding="utf-8") as f:
+                    lines = f.readlines()
+                
+                changed = False
+                new_lines = []
+                for line in lines:
+                    # 替换 WikiLinks
+                    if f"[[{old_name}]]" in line:
+                        line = wikilink_pattern.sub(f"[[{new_name}]]", line)
                         changed = True
-            
-            new_lines.append(line)
-        
-        if changed:
-            with open(md_file, "w", encoding="utf-8") as f:
-                f.writelines(new_lines)
-            ctx.run_git(["add", str(md_file)])
-            affected_files.append(md_file.name)
+                    
+                    # 替换 Relation as
+                    if "relation as" in line:
+                        match = relation_pattern.match(line)
+                        if match:
+                            prefix, targets = match.groups()
+                            target_list = [t.strip() for t in targets.split(",")]
+                            if old_name in target_list:
+                                new_target_list = [new_name if t == old_name else t for t in target_list]
+                                line = f"{prefix}{', '.join(new_target_list)}\n"
+                                changed = True
+                    
+                    new_lines.append(line)
+                
+                if changed:
+                    with open(md_file, "w", encoding="utf-8") as f:
+                        f.writelines(new_lines)
+                    if ctx.is_git_repo():
+                        ctx.run_git(["add", str(md_file)])
+                    affected_files.append(md_file.name)
+            except Exception as e:
+                self.add_result(f"[!] 处理文件 {md_file.name} 时出错: {e}")
 
-    # 3. 提交变更
-    commit_msg = f"rename {old_name} -> {new_name}: {reason}"
-    ctx.run_git(["commit", "-m", commit_msg])
-    
-    print(f"\n[SUCCESS] 重命名成功！")
-    print(f"受影响的引用文件: {', '.join(affected_files) if affected_files else '无'}")
-    
-    # 返回报告
-    print(f"\n<rename_report old=\"{old_name}\" new=\"{new_name}\" affected_count=\"{len(affected_files)}\">")
-    for f in affected_files:
-        print(f"  <file>{f}</file>")
-    print("</rename_report>")
+        # 3. 提交变更 (如果是在 Git 仓库中)
+        if ctx.is_git_repo():
+            commit_msg = f"rename {old_name} -> {new_name}: {self.args.reason}"
+            ctx.run_git(["commit", "-m", commit_msg])
+            self.add_result(f"已提交 Git 变更。")
 
-def main():
-    if "--memo-cli-info" in sys.argv:
-        print("Description: 重命名实体文件并自动更新全库范围内的 WikiLinks 引用。")
-        print("Example: memocli rename --path . --old 旧名称 --new 新名称 --reason \"原因\"")
-        sys.exit(0)
+        self.add_result(f"重命名成功！受影响的引用文件数: {len(affected_files)}")
+        for f in affected_files:
+            self.add_result(f"  - {f}")
 
-    is_memo_cli = "--memo-cli-call" in sys.argv
-    action_name = Path(__file__).stem.replace("_", "-")
-
-    parser = argparse.ArgumentParser(
-        prog=f"memocli {action_name}" if is_memo_cli else None,
-        description="安全重命名实体文件，并自动同步更新库内所有 WikiLinks 和语义关系。",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=f"""
-用法示例:
-  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} --path . --old 人物-张三 --new 人物-张小三 --reason "修正姓名"
-        """
-    )
-    parser.add_argument("--memo-cli-call", action="store_true", help=argparse.SUPPRESS)
-    parser.add_argument("-p", "--path", required=True, help="知识库根目录。")
-    parser.add_argument("--old", required=True, help="原实体名称（不含 .md）。")
-    parser.add_argument("--new", required=True, help="新实体名称（不含 .md）。")
-    parser.add_argument("-r", "--reason", required=True, help="重命名原因。")
-    
-    args = parser.parse_args()
-    
-    try:
-        rename_entity(args.path, args.old, args.new, args.reason)
-    except Exception as e:
-        print(f"[ERROR] 重命名失败: {e}", file=sys.stderr)
-        sys.exit(1)
+        self.finalize(success=True)
 
 if __name__ == "__main__":
-    main()
+    RenameScript().run()

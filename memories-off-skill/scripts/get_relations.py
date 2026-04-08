@@ -1,105 +1,113 @@
 #!/usr/bin/env python3
-import argparse
 import sys
 import re
 from pathlib import Path
-from schema_define import LibraryContext, MetadataParser
+from schema_define import ScriptBase, MetadataParser
 
-def get_related_entities(path: str, entity_name: str, relation_type: str = None):
-    """
-    查询与特定实体相连的所有其他实体。
-    """
-    root = Path(path).resolve()
-    ctx = LibraryContext(root, "Target Library")
-    
-    target_file = ctx.entities_path / f"{entity_name}.md"
-    if not target_file.exists():
-        print(f"[ERROR] 实体不存在: {target_file}", file=sys.stderr)
-        sys.exit(1)
+class GetRelationsScript(ScriptBase):
+    def __init__(self):
+        super().__init__(
+            action_name="get_relations",
+            description="分析实体的关联网络，列出所有指向和被指向的关系。",
+            example="memocli get-relations --path . --entity 人物-cafe3310"
+        )
+        self.parser.add_argument("-e", "--entity", required=True, help="要查询的实体名称（不含 .md）。")
+        self.parser.add_argument("-t", "--type", help="按关系类型过滤（模糊匹配）。")
 
-    print(f"[*] 正在查询实体 [{entity_name}] 的关联网络...")
-    
-    relations = [] # 存储格式: {"type": "", "target": "", "direction": ""}
+    def run(self):
+        self.setup()
+        ctx = self.ctx
+        raw_name = self.args.entity
+        target_name = MetadataParser.normalize_name(raw_name)
+        target_file = ctx.entities_path / f"{target_name}.md"
 
-    # 1. 扫描出向关系 (Outgoing: 当前实体指向别人)
-    with open(target_file, "r", encoding="utf-8") as f:
-        content = f.read()
-        metadata = MetadataParser.parse(content)
-        for key, val in metadata.items():
-            if key.startswith("relation as"):
-                predicate = key.replace("relation as", "").strip()
-                # 处理逗号分隔的目标
-                targets = [t.strip() for t in val.split(",")]
-                for t in targets:
-                    if not relation_type or relation_type.lower() in predicate.lower():
-                        relations.append({"type": predicate, "entity": t, "direction": "outgoing"})
+        if not target_file.exists():
+            self.error(f"实体不存在: {target_name}")
 
-    # 2. 扫描入向关系 (Incoming: 别人指向当前实体)
-    all_entity_files = list(ctx.entities_path.glob("*.md"))
-    for file in all_entity_files:
-        if file.name == f"{entity_name}.md": continue
+        self.add_result(f"正在分析实体 '{target_name}' 的关联网络...")
         
+        explicit_out = [] # 显式流出 (Metadata)
+        explicit_in = []  # 显式流入
+        implicit_out = [] # 隐式流出 (WikiLinks)
+        implicit_in = []  # 隐式流入
+
+        # 1. 解析目标实体的流出关系
         try:
-            with open(file, "r", encoding="utf-8") as f:
+            with open(target_file, "r", encoding="utf-8") as f:
                 content = f.read()
-                metadata = MetadataParser.parse(content)
+                metadata, body = MetadataParser.split_content(content)
+                
+                # 显式流出
                 for key, val in metadata.items():
-                    if key.startswith("relation as"):
-                        predicate = key.replace("relation as", "").strip()
-                        targets = [t.strip() for t in val.split(",")]
-                        if entity_name in targets:
-                            if not relation_type or relation_type.lower() in predicate.lower():
-                                relations.append({"type": predicate, "entity": file.stem, "direction": "incoming"})
-        except Exception:
-            continue
+                    if " as " in key:
+                        rel_type = key.split(" as ")[1]
+                        if not self.args.type or self.args.type.lower() in rel_type.lower():
+                            explicit_out.append((rel_type, val))
+                
+                # 隐式流出 (WikiLinks)
+                links = re.findall(r"\[\[(.*?)\]\]", body)
+                for link in links:
+                    # 处理 [[Path/To/Entity|Alias]] 或 [[Entity]]
+                    link_name = link.split("|")[0].strip()
+                    implicit_out.append(link_name)
+        except Exception as e:
+            self.add_result(f"[!] 读取目标实体失败: {e}")
 
-    # 3. 输出报告
-    print("\n" + "="*40)
-    print(f"  关联分析报告: {entity_name}")
-    print("="*40)
-    
-    if not relations:
-        print("  (未发现任何显式语义关系)")
-    else:
-        for rel in relations:
-            dir_icon = "→" if rel["direction"] == "outgoing" else "←"
-            print(f"  [{rel['type']}] {dir_icon} {rel['entity']}")
-    
-    print("="*40)
+        # 2. 全库扫描流入关系
+        self.add_result("正在扫描全库以查找流入关联...")
+        for file in ctx.entities_path.glob("*.md"):
+            if file.name == target_file.name:
+                continue
+            
+            try:
+                with open(file, "r", encoding="utf-8") as f:
+                    content = f.read()
+                    name = file.stem
+                    m, b = MetadataParser.split_content(content)
+                    
+                    # 显式流入
+                    for k, v in m.items():
+                        if " as " in k and v == target_name:
+                            rel_type = k.split(" as ")[1]
+                            if not self.args.type or self.args.type.lower() in rel_type.lower():
+                                explicit_in.append((name, rel_type))
+                    
+                    # 隐式流入
+                    if f"[[{target_name}]]" in b or f"[[{target_name}|" in b:
+                        implicit_in.append(name)
+            except:
+                pass
 
-    # XML 报告
-    print(f"\n<relations_report entity=\"{entity_name}\">")
-    for rel in relations:
-        print(f"  <relation type=\"{rel['type']}\" target=\"{rel['entity']}\" direction=\"{rel['direction']}\" />")
-    print("</relations_report>")
+        # 3. 构造结果展示
+        self.add_result("\n[显式关系 - 流出] (Explicit Outbound)")
+        if explicit_out:
+            for r, t in explicit_out:
+                self.add_result(f"  - {target_name} --({r})--> {t}")
+        else:
+            self.add_result("  (无)")
 
-def main():
-    if "--memo-cli-info" in sys.argv:
-        print("Description: 查询特定实体的显式语义关系图谱。")
-        print("Example: memocli get-relations --path . --entity 人物-cafe3310")
-        sys.exit(0)
+        self.add_result("\n[显式关系 - 流入] (Explicit Inbound)")
+        if explicit_in:
+            for s, r in explicit_in:
+                self.add_result(f"  - {s} --({r})--> {target_name}")
+        else:
+            self.add_result("  (无)")
 
-    is_memo_cli = "--memo-cli-call" in sys.argv
-    action_name = Path(__file__).stem.replace("_", "-")
+        self.add_result("\n[隐式链接 - 流出] (Implicit Outbound WikiLinks)")
+        if implicit_out:
+            for t in sorted(set(implicit_out)):
+                self.add_result(f"  - [[{t}]]")
+        else:
+            self.add_result("  (无)")
 
-    parser = argparse.ArgumentParser(
-        prog=f"memocli {action_name}" if is_memo_cli else None,
-        description="分析实体的关联网络，列出所有指向和被指向的关系。",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=f"用法示例:\n  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} --path . --entity 人物-cafe3310\n  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} -p ./kb -e 宠物-咪咪 --type 消耗"
-    )
-    parser.add_argument("--memo-cli-call", action="store_true", help=argparse.SUPPRESS)
-    parser.add_argument("-p", "--path", required=True, help="知识库根目录。")
-    parser.add_argument("-e", "--entity", required=True, help="要查询的实体名称（不含 .md）。")
-    parser.add_argument("-t", "--type", help="按关系类型过滤（模糊匹配）。")
-    
-    args = parser.parse_args()
-    
-    try:
-        get_related_entities(args.path, args.entity, args.type)
-    except Exception as e:
-        print(f"[ERROR] 查询失败: {e}", file=sys.stderr)
-        sys.exit(1)
+        self.add_result("\n[隐式链接 - 流入] (Implicit Inbound WikiLinks)")
+        if implicit_in:
+            for s in sorted(set(implicit_in)):
+                self.add_result(f"  - [[{s}]]")
+        else:
+            self.add_result("  (无)")
+
+        self.finalize(success=True)
 
 if __name__ == "__main__":
-    main()
+    GetRelationsScript().run()

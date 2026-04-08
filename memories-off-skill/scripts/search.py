@@ -1,146 +1,106 @@
 #!/usr/bin/env python3
-import argparse
 import sys
-import os
 import subprocess
 import re
 import shlex
 from pathlib import Path
+from schema_define import ScriptBase, MetadataParser
 
-def run_command(cmd):
-    """
-    运行 shell 命令并返回输出。
-    """
-    try:
-        # 使用 shell=True 需要非常小心路径中的空格，必须正确转义
-        result = subprocess.run(cmd, capture_output=True, text=True, shell=True)
-        return result.stdout.strip()
-    except Exception as e:
-        return f"Error: {e}"
-
-def search_entities(path: str, pattern: str, scope: str = "content", names_only: bool = False, context: int = 0):
-    root = Path(path).resolve()
-    entities_dir = root / "entities"
-    
-    if not entities_dir.exists():
-        print(f"[ERROR] 实体目录不存在: {entities_dir}", file=sys.stderr)
-        sys.exit(1)
-
-    print(f"[*] 正在搜索模式 '{pattern}' (范围: {scope}, 默认忽略大小写)...")
-    
-    results = []
-    
-    # 路径安全转义
-    safe_entities_dir = shlex.quote(str(entities_dir))
-    safe_pattern = shlex.quote(pattern)
-    
-    # 1. 仅搜索实体名称 (Filename)
-    if scope == "name":
-        # 使用 ls | grep 逻辑
-        cmd = f"ls {safe_entities_dir} | grep -iE {safe_pattern}"
-        output = run_command(cmd)
-        if output:
-            results = output.splitlines()
-
-    # 2. 搜索内容 (含 meta, all 逻辑)
-    else:
-        grep_flags = "-riE"
-        if names_only:
-            grep_flags += "l"
-        elif context > 0:
-            grep_flags += f" -C {context}"
+class SearchScript(ScriptBase):
+    def __init__(self):
+        super().__init__(
+            action_name="search",
+            description="在知识库中通过模式（正则表达式）检索实体。支持名称、元数据和正文搜索。",
+            example="memocli search \"五一\" --content --names-only"
+        )
+        self.parser.add_argument("pattern", help="要搜索的模式（支持正则表达式）。")
+        # 搜索范围
+        group = self.parser.add_mutually_exclusive_group()
+        group.add_argument("-n", "--name", action="store_true", help="仅搜索实体名称。")
+        group.add_argument("-m", "--meta", action="store_true", help="仅搜索元数据 (Frontmatter)。")
+        group.add_argument("-c", "--content", action="store_true", help="仅搜索正文内容。")
+        group.add_argument("-a", "--all", action="store_true", default=True, help="全方位全局搜索 (默认)。")
         
-        # 排除 meta.md
-        cmd = f"grep {grep_flags} {safe_pattern} {safe_entities_dir} --exclude='meta.md'"
-        output = run_command(cmd)
-        if output:
-            results = output.splitlines()
+        # 输出控制
+        self.parser.add_argument("--names-only", action="store_true", help="仅输出匹配的实体名称列表。")
+        self.parser.add_argument("-C", "--context", type=int, default=0, help="显示匹配行的上下文行数。")
 
-    # 3. 输出处理
-    if not results:
-        print(f"[!] 未找到匹配项: {pattern}")
-        print("\n<search_results count=\"0\" />")
-        return
+    def run(self):
+        self.setup()
+        ctx = self.ctx
+        pattern = self.args.pattern
 
-    if names_only:
-        # 只提取文件名
-        clean_names = []
-        for r in results:
-            name = Path(r).name.replace(".md", "")
-            if name not in clean_names:
-                clean_names.append(name)
-                print(name)
+        entities_dir = ctx.entities_path
+        if not entities_dir.exists():
+            self.error(f"实体目录不存在: {entities_dir}")
+
+        scope = "all"
+        if self.args.name: scope = "name"
+        elif self.args.meta: scope = "meta"
+        elif self.args.content: scope = "content"
+
+        # 针对名称搜索的特殊处理：标准化 pattern 以匹配文件名
+        search_pattern = pattern
+        if scope == "name":
+            search_pattern = MetadataParser.normalize_name(pattern)
+            self.add_result(f"正在以标准名称格式搜索: '{search_pattern}'")
+
+        safe_entities_dir = shlex.quote(str(entities_dir))
+
+        safe_pattern = shlex.quote(search_pattern)
         
-        print(f"\n<search_results count=\"{len(clean_names)}\">")
-        for n in clean_names:
-            print(f"  <match entity=\"{n}\" />")
-        print("</search_results>")
-    else:
-        # 显示详细匹配
-        current_entity = ""
-        match_count = 0
-        
-        for line in results:
-            # grep 输出格式: path/to/file:line_num:matched_text
-            # 或者 path/to/file-line_num-context_text (如果有 -C)
+        if scope == "name":
+            # 搜索文件名
+            cmd = f"ls {safe_entities_dir} | grep -iE {safe_pattern}"
+            output = subprocess.run(cmd, capture_output=True, text=True, shell=True).stdout.strip()
+            if output:
+                results = output.splitlines()
+        else:
+            grep_flags = "-riE"
+            if self.args.names_only:
+                grep_flags += "l"
+            elif self.args.context > 0:
+                grep_flags += f" -C {self.args.context}"
             
-            parts = re.split(r"[:\-]", line, 2)
-            if len(parts) >= 2:
-                file_path = parts[0]
-                entity_name = Path(file_path).name.replace(".md", "")
-                content = parts[2] if len(parts) > 2 else ""
-                
-                if entity_name != current_entity:
-                    print(f"\n[+] 实体: {entity_name}")
-                    current_entity = entity_name
-                    match_count += 1
-                
-                print(f"    {line.replace(str(entities_dir)+'/', '')}")
+            cmd = f"grep {grep_flags} {safe_pattern} {safe_entities_dir} --exclude='meta.md'"
+            output = subprocess.run(cmd, capture_output=True, text=True, shell=True).stdout.strip()
+            if output:
+                results = output.splitlines()
+
+        if not results:
+            self.add_result(f"未找到匹配项: {pattern}")
+            self.finalize(success=True)
+            return
+
+        if self.args.names_only:
+            clean_names = []
+            for r in results:
+                name = Path(r).name.replace(".md", "")
+                if name not in clean_names:
+                    clean_names.append(name)
+            
+            self.add_result(f"找到 {len(clean_names)} 个匹配实体:")
+            for n in clean_names:
+                self.add_result(f"  - {n}")
+        else:
+            current_entity = ""
+            for line in results:
+                # 仅在第一个冒号处分割，避免误伤包含中划线的路径
+                if ":" in line:
+                    file_path, match_detail = line.split(":", 1)
+                    entity_name = Path(file_path).name.replace(".md", "")
+                    
+                    if entity_name != current_entity:
+                        self.add_result(f"\n[实体: {entity_name}]")
+                        current_entity = entity_name
+                    
+                    # 清理显示路径，使其更简洁
+                    display_line = line.replace(str(entities_dir)+'/', "")
+                    self.add_result(f"  {display_line}")
+                else:
+                    self.add_result(f"  {line}")
         
-        print(f"\n<search_results count=\"{match_count}\" />")
-
-def main():
-    if "--memo-cli-info" in sys.argv:
-        print("Description: 在知识库中通过模式（正则表达式）检索实体。支持名称、元数据和正文搜索。")
-        print("Example: memocli search \"五一\" --content --names-only")
-        sys.exit(0)
-
-    is_memo_cli = "--memo-cli-call" in sys.argv
-    action_name = "search"
-
-    parser = argparse.ArgumentParser(
-        prog=f"memocli {action_name}" if is_memo_cli else None,
-        description="检索 Memories-Off 知识库中的实体。",
-        formatter_class=argparse.RawDescriptionHelpFormatter
-    )
-    parser.add_argument("--memo-cli-call", action="store_true", help=argparse.SUPPRESS)
-    parser.add_argument("-p", "--path", required=True, help="知识库的根目录路径。")
-    parser.add_argument("pattern", help="要搜索的模式（支持正则表达式）。")
-    
-    # 搜索范围
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument("-n", "--name", action="store_true", help="仅搜索实体名称。")
-    group.add_argument("-m", "--meta", action="store_true", help="仅搜索元数据 (Frontmatter)。")
-    group.add_argument("-c", "--content", action="store_true", default=True, help="仅搜索正文内容 (默认)。")
-    group.add_argument("-a", "--all", action="store_true", help="全方位全局搜索。")
-    
-    # 输出控制
-    parser.add_argument("--names-only", action="store_true", help="仅输出匹配的实体名称列表。")
-    parser.add_argument("-C", "--context", type=int, default=0, help="显示匹配行的上下文行数。")
-    
-    args = parser.parse_args()
-    
-    # 确定 scope
-    scope = "content"
-    if args.name: scope = "name"
-    elif args.meta: scope = "meta"
-    elif args.all: scope = "all"
-
-    try:
-        search_entities(args.path, args.pattern, scope, args.names_only, args.context)
-    except Exception as e:
-        print(f"[ERROR] 搜索失败: {e}", file=sys.stderr)
-        sys.exit(1)
+        self.finalize(success=True)
 
 if __name__ == "__main__":
-    main()
+    SearchScript().run()

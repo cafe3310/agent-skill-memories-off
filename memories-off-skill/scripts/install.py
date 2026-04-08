@@ -15,6 +15,7 @@ def create_memocli():
     
     # 2. 自动获取子命令列表及其描述
     subcommands_info = []
+    valid_subcommands = []
     py_files = sorted(script_dir.glob("*.py"))
     
     for py_file in py_files:
@@ -24,6 +25,7 @@ def create_memocli():
             
         # 优先使用中划线展示
         display_name = name.replace("_", "-")
+        valid_subcommands.append(display_name)
             
         try:
             # 运行脚本获取描述
@@ -46,27 +48,30 @@ def create_memocli():
             subcommands_info.append(f"    echo \"  {name:<20} - (加载失败)\"")
 
     subcommands_list_bash = "\n".join(subcommands_info)
+    subcommands_joined = ",".join(valid_subcommands)
 
     # 3. 确定安装路径
     target_bin = Path("/usr/local/bin")
     if not os.access(target_bin, os.W_OK):
         target_bin = Path.home() / ".local" / "bin"
         target_bin.mkdir(parents=True, exist_ok=True)
-        
+
         path_env = os.environ.get("PATH", "")
         if str(target_bin) not in path_env:
             print(f"[WARN] {target_bin} 不在 PATH 中，请手动添加。")
-    
+
     install_path = target_bin / "memocli"
-    
-    # 4. 构造 memocli 脚本内容 (使用 RAW 字符串或正确处理 $ 符号)
+
+    # 4. 构造 memocli 脚本内容 (使用 RAW 字符串 or 正确处理 $ 符号)
     # 在 Python 3.6+ f-string 中，$ 不需要转义，除非后面跟着 {
     content = f"""#!/bin/bash
-# memocli: memories-off 技能的命令行包装器
+    # memocli: memories-off 技能的命令行包装器
 
-SCRIPTS_DIR="{script_dir}"
-PYTHON_CMD="python3"
-SKILL_MD="{skill_md_path}"
+    SCRIPTS_DIR="{script_dir}"
+    PYTHON_CMD="python3"
+    SKILL_MD="{skill_md_path}"
+    VALID_SUBS="{subcommands_joined}"
+
 
 ACTION=$1
 
@@ -99,7 +104,14 @@ ACTION=$(echo "$RAW_ACTION" | tr '-' '_')
 SCRIPT_PATH="$SCRIPTS_DIR/$ACTION.py"
 
 if [ ! -f "$SCRIPT_PATH" ]; then
-    echo "[ERROR] 子命令 '$ACTION' 不存在 (未找到文件: $SCRIPT_PATH)"
+    echo "[错误] 子命令 '$RAW_ACTION' 不存在。"
+    
+    # 模糊匹配建议
+    SUGGESTION=$($PYTHON_CMD -c "import difflib; matches = difflib.get_close_matches('$RAW_ACTION', '$VALID_SUBS'.split(','), n=1, cutoff=0.5); print(matches[0]) if matches else print('')")
+    
+    if [ -n "$SUGGESTION" ]; then
+        echo "您是不是想运行: memocli $SUGGESTION ?"
+    fi
     exit 1
 fi
 
@@ -113,9 +125,6 @@ for arg in "$@"; do
 done
 
 if [ "$IS_HELP" = true ]; then
-    echo "[memocli] 正在获取子命令 '$ACTION' 的帮助信息..."
-    echo "[memocli] 提示: 您可以直接运行 'memocli $ACTION <args...>' 来执行命令。"
-    echo "----------------------------------------------------------------------"
     $PYTHON_CMD "$SCRIPT_PATH" --memo-cli-call --help
     exit 0
 fi

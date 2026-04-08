@@ -1,94 +1,86 @@
 #!/usr/bin/env python3
-import argparse
 import sys
+import os
 from pathlib import Path
-from schema_define import LibraryContext, MetadataParser
+from collections import Counter
+from schema_define import ScriptBase, MetadataParser
 
-def inspect_schema(path: str, mode: str):
-    """
-    扫描库内所有实体，提取已使用的实体类型或元数据键名。
-    """
-    root = Path(path).resolve()
-    ctx = LibraryContext(root, "Target Library")
-    
-    if not ctx.entities_path.exists():
-        print(f"[ERROR] 实体目录不存在: {ctx.entities_path}", file=sys.stderr)
-        sys.exit(1)
+class InspectSchemaScript(ScriptBase):
+    def __init__(self):
+        super().__init__(
+            action_name="inspect_schema",
+            description="分析知识库的事实 Schema（通过扫描实体元数据提取实际存在的类型和键名）。",
+            example="memocli inspect-schema --path ."
+        )
 
-    entity_files = list(ctx.entities_path.glob("*.md"))
-    
-    unique_types = set()
-    unique_keys = set()
+    def run(self):
+        self.setup()
+        ctx = self.ctx
+        
+        self.add_result(f"正在分析知识库资产: {ctx.root_path}")
+        
+        # 1. 报告手册状态 (仅基本信息)
+        if ctx.meta_path.exists():
+            size = os.path.getsize(ctx.meta_path)
+            self.add_result(f"[手册] meta.md 已存在 ({size} bytes)")
+        else:
+            self.add_result("[手册] 未找到 meta.md (建议运行 init 或手动创建)")
 
-    print(f"[*] 正在扫描 {len(entity_files)} 个实体以提取 Schema 信息...")
-
-    for file in entity_files:
-        try:
-            with open(file, "r", encoding="utf-8") as f:
-                content = f.read()
-                metadata = MetadataParser.parse(content)
+        # 2. 事实 Schema 提取 (Fact-based Discovery)
+        if ctx.entities_path.exists():
+            entity_files = list(ctx.entities_path.glob("*.md"))
+            if entity_files:
+                self.add_result(f"\n正在扫描 {len(entity_files)} 个实体以提取 Schema...")
                 
-                # 记录类型
-                if "entity type" in metadata:
-                    unique_types.add(metadata["entity type"])
+                found_types = Counter()
+                all_keys = Counter()
+                relation_types = Counter()
+
+                # 为了性能，如果实体过多则采样，否则全量
+                sample_size = 100
+                files_to_scan = entity_files[:sample_size]
                 
-                # 记录所有键名
-                for key in metadata.keys():
-                    unique_keys.add(key)
-        except Exception:
-            continue
+                for file in files_to_scan:
+                    try:
+                        with open(file, "r", encoding="utf-8") as f:
+                            metadata = MetadataParser.parse(f.read())
+                            
+                            # 统计实体类型
+                            e_type = metadata.get("entity type", "未分类")
+                            found_types[e_type] += 1
+                            
+                            # 统计元数据键
+                            for k in metadata.keys():
+                                all_keys[k] += 1
+                                # 特别提取关系类型
+                                if "relation as " in k:
+                                    rel_name = k.split("relation as ")[1]
+                                    relation_types[rel_name] += 1
+                    except:
+                        continue
 
-    if mode == "types" or mode == "all":
-        print("\n[可用实体类型 (Entity Types)]")
-        for t in sorted(unique_types):
-            print(f"  - {t}")
-            
-    if mode == "keys" or mode == "all":
-        print("\n[已使用的元数据键名 (Metadata Keys)]")
-        for k in sorted(unique_keys):
-            print(f"  - {k}")
+                # 3. 构造报告
+                self.add_result(f"\n[实际存在的实体类型] (采样自 {len(files_to_scan)} 个文件)")
+                for t, count in found_types.most_common():
+                    self.add_result(f"  - {t} ({count})")
 
-    # XML 报告输出
-    print(f"\n<schema_inspection_report path=\"{root}\">")
-    if mode in ["types", "all"]:
-        print("  <entity_types>")
-        for t in sorted(unique_types):
-            print(f"    <type>{t}</type>")
-        print("  </entity_types>")
-    if mode in ["keys", "all"]:
-        print("  <metadata_keys>")
-        for k in sorted(unique_keys):
-            print(f"    <key>{k}</key>")
-        print("  </metadata_keys>")
-    print("</schema_inspection_report>")
+                self.add_result("\n[已使用的元数据键名]")
+                for k, count in sorted(all_keys.items()):
+                    if "relation as " not in k:
+                        self.add_result(f"  - {k} ({count})")
 
-def main():
-    if "--memo-cli-info" in sys.argv:
-        print("Description: 检查并输出知识库的元数据 Schema 详情。")
-        print("Example: memocli inspect-schema --path . --mode types")
-        sys.exit(0)
+                self.add_result("\n[发现的关系契约] (Explicit Relations)")
+                if relation_types:
+                    for r, count in sorted(relation_types.items()):
+                        self.add_result(f"  - {r} ({count})")
+                else:
+                    self.add_result("  (未发现显式关系定义)")
+            else:
+                self.add_result("\n[实体] 目录为空，无法提取 Schema。")
+        else:
+            self.error("实体目录不存在。")
 
-    is_memo_cli = "--memo-cli-call" in sys.argv
-    action_name = Path(__file__).stem.replace("_", "-")
-
-    parser = argparse.ArgumentParser(
-        prog=f"memocli {action_name}" if is_memo_cli else None,
-        description="扫描知识库资产，获取已定义的实体类型和元数据键名枚举。",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=f"用法示例:\n  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} --path . --mode types\n  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} -p ./kb -m keys\n  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} -p ./kb -m all"
-    )
-    parser.add_argument("--memo-cli-call", action="store_true", help=argparse.SUPPRESS)
-    parser.add_argument("-p", "--path", required=True, help="知识库根目录。")
-    parser.add_argument("-m", "--mode", choices=["types", "keys", "all"], default="all",
-                        help="检查模式：types (类型), keys (键名), all (全部)。")
-    
-    args = parser.parse_args()
-    
-    try:
-        inspect_schema(args.path, args.mode)
-    except Exception as e:
-        print(f"[ERROR] 检查失败: {e}", file=sys.stderr)
-        sys.exit(1)
+        self.finalize(success=True)
 
 if __name__ == "__main__":
-    main()
+    InspectSchemaScript().run()

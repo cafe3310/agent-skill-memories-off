@@ -1,141 +1,93 @@
 #!/usr/bin/env python3
-import argparse
 import sys
 import re
 from pathlib import Path
 from datetime import datetime
-from schema_define import LibraryContext, MetadataParser
-import subprocess
+from schema_define import ScriptBase, MetadataParser
 
-# 正则：提取更新块
-BLOCK_RE = re.compile(
-    r"--- \[UPDATE BLOCK\] ---\n"
-    r"timestamp: (.*?)\n"
-    r"target_heading: \"(.*?)\"\n"
-    r"action: \"(.*?)\"\n"
-    r"content: \|\n"
-    r"(.*?)\n"
-    r"--- \[END OF UPDATE BLOCK\] ---",
+# 新版更新块正则 (匹配 HTML 注释风格)
+NEW_BLOCK_RE = re.compile(
+    r"<!-- UPDATE_BLOCK_START: (.*?) \| reason: (.*?) -->\n(.*?)\n<!-- UPDATE_BLOCK_END -->",
     re.DOTALL
 )
 
-def consolidate_entity(file_path: Path):
-    """
-    解析并合并单个实体的所有更新块。
-    """
-    with open(file_path, "r", encoding="utf-8") as f:
-        content = f.read()
+class ConsolidateUpdatesScript(ScriptBase):
+    def __init__(self):
+        super().__init__(
+            action_name="consolidate_updates",
+            description="将实体末尾的缓冲更新块合并到正式章节中（梦境整理）。",
+            example="memocli consolidate-updates --path . --reason \"定期整理\""
+        )
 
-    blocks = list(BLOCK_RE.finditer(content))
-    if not blocks:
-        return False
+    def consolidate_entity(self, file_path: Path):
+        """解析并合并单个实体的所有更新块。"""
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
 
-    # 1. 提取元数据和纯正文（不含更新块）
-    metadata, full_body = MetadataParser.split_content(content)
-    # 移除所有更新块标记，得到原始正文
-    clean_body = BLOCK_RE.sub("", full_body).strip()
-    
-    new_body = clean_body
-    
-    for match in blocks:
-        _, target_heading, action, block_content = match.groups()
-        # 去掉 block_content 每行前面的 2 个空格缩进
-        lines = [line[2:] if line.startswith("  ") else line for line in block_content.splitlines()]
-        refined_content = "\n".join(lines).strip()
+        blocks = list(NEW_BLOCK_RE.finditer(content))
+        if not blocks:
+            return False
+
+        # 1. 提取元数据和纯正文（不含更新块）
+        metadata, full_body = MetadataParser.split_content(content)
+        # 移除所有更新块标记，得到干净正文
+        clean_body = NEW_BLOCK_RE.sub("", full_body).strip()
         
-        if action == "new_section":
-            new_body += f"\n\n{refined_content}"
-        elif action == "append":
-            if target_heading in new_body:
-                # 在目标标题后追加
-                pattern = re.escape(target_heading)
-                # 寻找目标标题到下一个同级或更高级标题之间的内容
-                # 此处简化逻辑：寻找标题后到下一个标题或文件尾
-                new_body = re.sub(f"({pattern}.*?)(\n#|$)", f"\\1\n\n{refined_content}\\2", new_body, flags=re.DOTALL)
-            else:
-                # 找不到标题，退化为追加到末尾
-                new_body += f"\n\n{refined_content}"
-        elif action == "replace":
-            if target_heading in new_body:
-                # 替换目标标题下的内容
-                pattern = re.escape(target_heading)
-                new_body = re.sub(f"({pattern}).*?(\n#|$)", f"\\1\n\n{refined_content}\\2", new_body, flags=re.DOTALL)
-            else:
-                new_body += f"\n\n{refined_content}"
+        # 2. 合并逻辑 (简单追加到正文末尾)
+        new_body = clean_body
+        for match in blocks:
+            timestamp, reason, block_content = match.groups()
+            new_body += f"\n\n{block_content.strip()}"
 
-    # 2. 更新元数据
-    metadata["date modified"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    # 3. 合并写回
-    final_content = MetadataParser.serialize(metadata) + "\n" + new_body.strip() + "\n"
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.write(final_content)
-    
-    return True
+        # 3. 更新元数据
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        metadata["date modified"] = now
+        
+        # 4. 写回
+        final_content = MetadataParser.serialize(metadata) + "\n" + new_body.strip() + "\n"
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(final_content)
+        
+        return True
 
-def consolidate_all(path: str, reason: str):
-    """
-    遍历全库执行整理任务。
-    """
-    root = Path(path).resolve()
-    ctx = LibraryContext(root, "Target Library")
-    
-    print(f"[*] 开始执行梦境整理 (Consolidation)...")
-    
-    entity_files = list(ctx.entities_path.glob("*.md"))
-    affected_files = []
+    def run(self):
+        self.setup()
+        
+        if self.args.reason == "none":
+            self.error("必须提供整理理由 (--reason/-r)。", instruction="请补充理由后重试。")
 
-    for file in entity_files:
-        if consolidate_entity(file):
-            affected_files.append(file.stem)
-            ctx.run_git(["add", str(file)])
-            print(f"[+] 已合并实体: {file.stem}")
+        ctx = self.ctx
+        self.add_result(f"开始执行梦境整理 (Consolidation) 于: {ctx.root_path}")
+        
+        entity_files = list(ctx.entities_path.glob("*.md"))
+        affected_files = []
 
-    if not affected_files:
-        print("[INFO] 没有待处理的更新块。")
-        return
+        for file in entity_files:
+            try:
+                if self.consolidate_entity(file):
+                    affected_files.append(file.stem)
+                    if ctx.is_git_repo():
+                        ctx.run_git(["add", str(file)])
+                    self.add_result(f"[+] 已合并实体: {file.stem}")
+            except Exception as e:
+                self.add_result(f"[!] 处理 {file.name} 失败: {e}")
 
-    # 调用 commit.py
-    commit_script = Path(__file__).parent / "commit.py"
-    try:
-        subprocess.run([
-            sys.executable, str(commit_script),
-            "--path", str(root),
-            "--action", "edit",
-            "--target", "Global",
-            "--reason", f"Consolidate updates for {len(affected_files)} entities: {reason}"
-        ], check=True)
-    except subprocess.CalledProcessError as e:
-        print(f"[WARN] 整理已完成但自动提交失败: {e}")
+        if not affected_files:
+            self.add_result("没有发现待处理的缓冲更新块。")
+            self.finalize(success=True)
+            return
 
-    print(f"\n[SUCCESS] 梦境整理圆满完成！共处理 {len(affected_files)} 个实体。")
+        # 提交变更
+        if ctx.is_git_repo():
+            commit_msg = f"Consolidate updates for {len(affected_files)} entities: {self.args.reason}"
+            try:
+                ctx.run_git(["commit", "-m", commit_msg])
+                self.add_result(f"已提交 Git 变更。")
+            except Exception as e:
+                self.add_result(f"[WARN] 整理已完成但自动提交失败: {e}")
 
-def main():
-    if "--memo-cli-info" in sys.argv:
-        print("Description: 将实体末尾的更新块合并到正式章节中。")
-        print("Example: memocli consolidate-updates --path . --reason \"定期梦境整理\"")
-        sys.exit(0)
-
-    is_memo_cli = "--memo-cli-call" in sys.argv
-    action_name = Path(__file__).stem.replace("_", "-")
-
-    parser = argparse.ArgumentParser(
-        prog=f"memocli {action_name}" if is_memo_cli else None,
-        description="解析并合并所有实体的缓冲更新块，完成‘梦境整理’。",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=f"用法示例:\n  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} --path . --reason \"定期梦境整理\""
-    )
-    parser.add_argument("--memo-cli-call", action="store_true", help=argparse.SUPPRESS)
-    parser.add_argument("-p", "--path", required=True, help="知识库根目录。")
-    parser.add_argument("-r", "--reason", default="定期梦境整理", help="操作原因。")
-    
-    args = parser.parse_args()
-    
-    try:
-        consolidate_all(args.path, args.reason)
-    except Exception as e:
-        print(f"[ERROR] 梦境整理失败: {e}", file=sys.stderr)
-        sys.exit(1)
+        self.add_result(f"梦境整理圆满完成！共处理 {len(affected_files)} 个实体。")
+        self.finalize(success=True)
 
 if __name__ == "__main__":
-    main()
+    ConsolidateUpdatesScript().run()

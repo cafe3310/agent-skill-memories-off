@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Memories-Off 3D 知识图谱</title>
+    <style>
+        body { margin: 0; background-color: #000; overflow: hidden; font-family: sans-serif; }
+        #graph-container { width: 100vw; height: 100vh; }
+        #info-panel {
+            position: absolute; top: 10px; left: 10px;
+            color: #ccc; background: rgba(0,0,0,0.8);
+            padding: 15px; border-radius: 8px;
+            font-size: 13px; border: 1px solid #444;
+            z-index: 100; line-height: 1.6;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        .control-group { margin-top: 10px; border-top: 1px solid #333; padding-top: 10px; }
+        label { cursor: pointer; display: flex; align-items: center; gap: 8px; }
+        input[type="checkbox"] { cursor: pointer; }
+    </style>
+    <script>var exports = {};</script>
+    <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/3d-force-graph@1.73.0/dist/3d-force-graph.min.js"></script>
+</head>
+<body>
+    <div id="graph-container"></div>
+    <div id="info-panel">
+        <strong>Memories-Off 3D Gravity KG</strong><br/>
+        左键: 旋转 | 右键: 平移 | 滚轮: 缩放<br/>
+        点击节点: 聚焦中心
+        <div class="control-group">
+            <label><input type="checkbox" id="show-labels" checked> 开启节点名称显示</label>
+        </div>
+    </div>
+    <script>
+        const gData = {DATA_JSON};
+        const state = { showLabels: true, labelVisibilityDist: 250 };
+        const elem = document.getElementById('graph-container');
+        const Graph = ForceGraph3D()(elem)
+            .graphData(gData)
+            .nodeLabel(node => `${node.type}: ${node.display_name}`)
+            .nodeAutoColorBy('type')
+            .nodeVal(node => node.is_alias ? 2 : Math.min(Math.max(Math.sqrt(node.file_size || 500) / 5, 5), 30))
+            .linkDirectionalArrowLength(3.5)
+            .linkDirectionalArrowRelPos(1)
+            .linkCurvature(0.25)
+            .onNodeClick(node => {
+                const distance = 80;
+                const distRatio = 1 + distance/Math.hypot(node.x, node.y, node.z);
+                Graph.cameraPosition({ x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio }, node, 2000);
+            })
+            .nodeThreeObject(node => {
+                const sprite = new SpriteText(node.display_name);
+                sprite.color = 'white'; sprite.textHeight = 4;
+                node.__labelSprite = sprite; return sprite;
+            })
+            .nodeThreeObjectExtend(true);
+
+        function SpriteText(text) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const fontSize = 48; ctx.font = `${fontSize}px sans-serif`;
+            const textWidth = ctx.measureText(text).width;
+            canvas.width = textWidth + 20; canvas.height = fontSize + 20;
+            ctx.font = `${fontSize}px sans-serif`; ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'white'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+            const texture = new THREE.CanvasTexture(canvas);
+            const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
+            const sprite = new THREE.Sprite(spriteMaterial);
+            const aspect = canvas.width / canvas.height;
+            sprite.scale.set(aspect * 4, 4, 1); sprite.position.y = 6;
+            return sprite;
+        }
+
+        const uiToggle = document.getElementById('show-labels');
+        uiToggle.addEventListener('change', (e) => { state.showLabels = e.target.checked; });
+
+        function updateLabels() {
+            const camPos = Graph.cameraPosition();
+            Graph.graphData().nodes.forEach(n => {
+                if (n.__labelSprite) {
+                    const dist = Math.hypot(n.x - camPos.x, n.y - camPos.y, n.z - camPos.z);
+                    n.__labelSprite.visible = state.showLabels && dist < state.labelVisibilityDist;
+                }
+            });
+            requestAnimationFrame(updateLabels);
+        }
+        updateLabels();
+
+        Graph.d3Force('type-gravity', (alpha) => {
+            const nodes = Graph.graphData().nodes;
+            const totals = {};
+            nodes.forEach(n => {
+                if (n.is_alias) return;
+                if (!totals[n.type]) totals[n.type] = { x: 0, y: 0, z: 0, count: 0 };
+                totals[n.type].x += n.x; totals[n.type].y += n.y; totals[n.type].z += n.z; totals[n.type].count++;
+            });
+            nodes.forEach(n => {
+                const t = totals[n.type];
+                if (t) {
+                    n.vx += (t.x / t.count - n.x) * alpha * 0.08;
+                    n.vy += (t.y / t.count - n.y) * alpha * 0.08;
+                    n.vz += (t.z / t.count - n.z) * alpha * 0.08;
+                }
+            });
+        });
+        Graph.d3Force('link').strength(link => link.is_alias_link ? 1.0 : 0.2).distance(link => link.is_alias_link ? 10 : 60);
+    </script>
+</body>
+</html>

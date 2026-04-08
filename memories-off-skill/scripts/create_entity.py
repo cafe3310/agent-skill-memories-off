@@ -1,111 +1,73 @@
 #!/usr/bin/env python3
-import argparse
 import sys
 from datetime import datetime
-from pathlib import Path
-from schema_define import LibraryContext, MetadataParser
-import subprocess
+from schema_define import ScriptBase, MetadataParser
 
-def create_entity(path: str, name: str, entity_type: str, relations: str, reason: str):
-    """
-    创建符合规范的实体文件并执行 Initial Commit。
-    自动处理 [类型-名称] 的命名契约。
-    """
-    root = Path(path).resolve()
-    ctx = LibraryContext(root, "Target Library")
-    
-    # 1. 处理命名契约: [类型-名称]
-    prefix = f"{entity_type}-"
-    if not name.startswith(prefix):
-        full_name = f"{prefix}{name}"
-    else:
-        full_name = name
+class CreateEntityScript(ScriptBase):
+    def __init__(self):
+        super().__init__(
+            action_name="create_entity",
+            description="在知识库中创建一个新的实体文件，文件名即为实体名称。",
+            example="memocli create-entity --path . --entity \"张三\" --type \"人物\" --reason \"添加新角色\""
+        )
+        self.parser.add_argument("-n", "--name", help="实体名称。")
+        self.parser.add_argument("-e", "--entity", help="实体名称 (等同于 --name，作为文件名使用)。")
+        self.parser.add_argument("-t", "--type", required=True, help="实体类型（如：人物、概念、项目）。")
+        self.parser.add_argument("-rel", "--relations", help="初始关系，格式为 'rel1:Target1,rel2:Target2'。")
 
-    # 标准化名称与路径
-    normalized_name = MetadataParser.normalize_name(full_name)
-    file_path = ctx.entities_path / f"{normalized_name}.md"
-    
-    if file_path.exists():
-        print(f"[ERROR] 实体已存在: {file_path}", file=sys.stderr)
-        sys.exit(1)
+    def run(self):
+        self.setup()
+        
+        if self.args.reason == "none":
+            self.error("必须提供创建实体的理由 (--reason/-r)。", instruction="请补充理由后重试。")
 
-    # 2. 准备元数据
-    today = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    # 使用 MetadataParser.serialize 保证格式统一
-    metadata = {
-        "entity type": entity_type,
-        "date created": today,
-        "date modified": today,
-        "status": "draft"
-    }
-    
-    # 解析并添加关系 (格式示例: "成员: 某组织, 负责: 某项目")
-    if relations:
-        rel_items = [r.strip() for r in relations.split(",")]
-        for item in rel_items:
-            if ":" in item:
-                k, v = item.split(":", 1)
-                metadata[f"relation as {k.strip().lower()}"] = v.strip()
+        ctx = self.ctx
+        raw_name = self.args.entity if self.args.entity else self.args.name
+        if not raw_name:
+            self.error("必须提供实体名称 (--name 或 --entity)。")
+            
+        normalized_name = MetadataParser.normalize_name(raw_name)
+        file_path = ctx.entities_path / f"{normalized_name}.md"
 
-    # 3. 构造初始内容
-    body = f"\n# {name}\n\n(在此输入实体描述)"
-    content = MetadataParser.serialize(metadata) + body
-    
-    # 4. 写入文件
-    print(f"[*] 正在创建实体: {normalized_name} (路径: {file_path})")
-    ctx.entities_path.mkdir(parents=True, exist_ok=True)
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.write(content)
+        if file_path.exists():
+            self.error(f"实体已存在: {normalized_name}", instruction="请使用已有的实体或选择不同的名称。")
 
-    # 5. 调用外部 commit.py 执行标准化提交
-    commit_script = Path(__file__).parent / "commit.py"
-    try:
-        subprocess.run([
-            sys.executable, str(commit_script),
-            "--path", str(root),
-            "--action", "create",
-            "--target", normalized_name,
-            "--reason", reason
-        ], check=True)
-    except subprocess.CalledProcessError as e:
-        print(f"[WARN] 实体已创建但自动提交失败: {e}")
+        self.add_result(f"正在创建新实体: {normalized_name} (类型: {self.args.type})")
 
-    # XML 报告 (明确返回生成的实体名，供 Agent 后续引用)
-    print(f"\n<create_report entity_name=\"{normalized_name}\" file=\"{file_path.name}\">")
-    print(f"  <status>success</status>")
-    print(f"  <message>Created entity with standardized name: {normalized_name}</message>")
-    print("</create_report>")
+        # 2. 构造初始元数据
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        metadata = {
+            "entity type": self.args.type,
+            "date created": now,
+            "date modified": now,
+            "reason": self.args.reason
+        }
 
-def main():
-    if "--memo-cli-info" in sys.argv:
-        print("Description: 创建符合规范的新实体文件，并处理命名契约。")
-        print("Example: memocli create-entity --path . --name 咪咪 --type 宠物 --relations \"成员: 咖啡馆\" --reason \"新增宠物档案\"")
-        sys.exit(0)
+        # 处理初始关系 (更鲁棒的解析)
+        if self.args.relations:
+            rel_pairs = [p.strip() for p in self.args.relations.split(",") if p.strip()]
+            for pair in rel_pairs:
+                if ":" in pair:
+                    rel, target = pair.split(":", 1)
+                    metadata[f"relation as {rel.strip()}"] = target.strip()
+                else:
+                    self.add_result(f"[WARN] 关系格式无效 (跳过): {pair}")
 
-    is_memo_cli = "--memo-cli-call" in sys.argv
-    action_name = Path(__file__).stem.replace("_", "-")
+        # 3. 构造文件内容
+        content = MetadataParser.serialize(metadata)
+        content += f"\n# {normalized_name}\n\n(在此处输入实体的详细描述...)\n"
 
-    parser = argparse.ArgumentParser(
-        prog=f"memocli {action_name}" if is_memo_cli else None,
-        description="自动化创建符合规范的知识实体，自动补全 [类型-名称] 前缀。",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=f"用法示例:\n  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} --path . --name 咪咪 --type 宠物 --relations \"成员: 咖啡馆\" --reason \"新增宠物档案\""
-    )
-    parser.add_argument("--memo-cli-call", action="store_true", help=argparse.SUPPRESS)
-    parser.add_argument("-p", "--path", required=True, help="知识库根目录。")
-    parser.add_argument("-n", "--name", required=True, help="实体显示名称。")
-    parser.add_argument("-t", "--type", required=True, help="实体分类（单一值）。")
-    parser.add_argument("-rel", "--relations", help="初始关系（格式：'谓词: 目标, ...'）。")
-    parser.add_argument("-r", "--reason", required=True, help="创建原因（用于 Git Commit）。")
-    
-    args = parser.parse_args()
-    
-    try:
-        create_entity(args.path, args.name, args.type, args.relations, args.reason)
-    except Exception as e:
-        print(f"[ERROR] 创建失败: {e}", file=sys.stderr)
-        sys.exit(1)
+        # 4. 写入文件
+        try:
+            ctx.entities_path.mkdir(parents=True, exist_ok=True)
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(content)
+            self.add_result(f"文件已写入: {file_path.relative_to(ctx.root_path)}")
+        except Exception as e:
+            self.error(f"写入文件失败: {e}")
+
+        # 5. 完成
+        self.finalize(success=True)
 
 if __name__ == "__main__":
-    main()
+    CreateEntityScript().run()

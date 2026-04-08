@@ -1,116 +1,110 @@
 #!/usr/bin/env python3
-import argparse
 import sys
-from pathlib import Path
 from datetime import datetime
-from schema_define import LibraryContext, MetadataParser
-import subprocess
+from schema_define import ScriptBase, MetadataParser
 
-def manage_relation(path: str, entity_name: str, action: str, predicate: str, target: str, reason: str):
-    """
-    通过脚本精确建立或删除语义关系，并更新元数据。
-    """
-    root = Path(path).resolve()
-    ctx = LibraryContext(root, "Target Library")
-    
-    entity_file = ctx.entities_path / f"{entity_name}.md"
-    if not entity_file.exists():
-        print(f"[ERROR] 实体不存在: {entity_file}", file=sys.stderr)
-        sys.exit(1)
+class ManageRelationsScript(ScriptBase):
+    def __init__(self):
+        super().__init__(
+            action_name="manage_relations",
+            description="在实体 Frontmatter 中增加或删除显式语义关系。",
+            example="memocli manage-relations --path . --source \"人物-cafe3310\" --add \"负责:概念-Memory-Skill\" -r \"分配职责\""
+        )
+        self.parser.add_argument("-s", "--source", required=True, help="源实体名称（不含 .md）。")
+        self.parser.add_argument("--add", help="增加关系，格式为 'rel_type:TargetEntity'。")
+        self.parser.add_argument("--remove", help="删除关系，格式为 'rel_type:TargetEntity'。")
 
-    # 1. 验证目标实体是否存在 (仅 add 时)
-    if action == "add":
-        target_file = ctx.entities_path / f"{target}.md"
-        if not target_file.exists():
-            print(f"[ERROR] 关联目标实体不存在: {target}", file=sys.stderr)
-            sys.exit(1)
+    def run(self):
+        self.setup()
+        
+        if self.args.reason == "none":
+            self.error("必须提供执行此操作的理由 (--reason/-r)。", instruction="请补充理由后重试。")
 
-    # 2. 读取并解析内容
-    with open(entity_file, "r", encoding="utf-8") as f:
-        content = f.read()
-    
-    metadata, body = MetadataParser.split_content(content)
-    
-    # 构造关系 Key (遵循 memories-off 规范)
-    rel_key = f"relation as {predicate.strip().lower()}"
-    
-    # 3. 执行动作
-    changed = False
-    current_targets = []
-    if rel_key in metadata:
-        current_targets = [t.strip() for t in metadata[rel_key].split(",")]
+        if not self.args.add and not self.args.remove:
+            self.error("必须提供 --add 或 --remove 参数。", instruction="请指定要添加或删除的关系。")
 
-    if action == "add":
-        if target not in current_targets:
-            current_targets.append(target)
-            metadata[rel_key] = ", ".join(current_targets)
-            changed = True
-            print(f"[*] 已添加关系: {entity_name} --[{predicate}]--> {target}")
-    elif action == "delete":
-        if target in current_targets:
-            current_targets.remove(target)
-            if not current_targets:
-                del metadata[rel_key]
+        ctx = self.ctx
+        raw_source_name = self.args.source
+        source_name = MetadataParser.normalize_name(raw_source_name)
+        source_file = ctx.entities_path / f"{source_name}.md"
+
+        if not source_file.exists():
+            self.error(f"源实体不存在: {source_name}")
+
+        self.add_result(f"正在管理实体 '{source_name}' 的显式关系...")
+
+        # 1. 读取并解析文件
+        try:
+            with open(source_file, "r", encoding="utf-8") as f:
+                content = f.read()
+            
+            metadata, body = MetadataParser.split_content(content)
+        except Exception as e:
+            self.error(f"读取或解析实体失败: {e}")
+
+        changed = False
+
+        # 2. 处理删除关系
+        if self.args.remove:
+            if ":" in self.args.remove:
+                rel_type, target = self.args.remove.split(":", 1)
+                normalized_rel = MetadataParser.normalize_predicate(rel_type)
+                rel_key = f"relation as {normalized_rel}".lower()
+                target_val = MetadataParser.normalize_name(target.strip())
+
+                if rel_key in metadata:
+                    # 获取旧值进行精确匹配
+                    old_val = metadata[rel_key]
+                    if MetadataParser.normalize_name(old_val) == target_val:
+                        del metadata[rel_key]
+                        self.add_result(f"成功删除关系: {normalized_rel} -> {target_val}")
+                        changed = True
+                    else:
+                        self.add_result(f"[!] 关系类型 '{normalized_rel}' 存在，但指向的是 '{old_val}' 而非 '{target_val}' (跳过)")
+                else:
+                    self.add_result(f"[!] 未找到指定的关系: {normalized_rel} (跳过)")
             else:
-                metadata[rel_key] = ", ".join(current_targets)
-            changed = True
-            print(f"[*] 已删除关系: {entity_name} --[{predicate}]--> {target}")
+                self.add_result("[!] --remove 格式无效，应为 'type:target' (跳过)")
 
-    if not changed:
-        print("[INFO] 关系未发生变动，跳过。")
-        return
+        # 3. 处理增加关系
+        if self.args.add:
+            if ":" in self.args.add:
+                rel_type, target = self.args.add.split(":", 1)
+                normalized_rel = MetadataParser.normalize_predicate(rel_type)
+                rel_key = f"relation as {normalized_rel}".lower()
+                target_val = MetadataParser.normalize_name(target.strip())
 
-    # 4. 更新元数据 (date modified)
-    metadata["date modified"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                # 检查目标是否存在
+                target_file = ctx.entities_path / f"{target_val}.md"
+                if not target_file.exists():
+                    self.add_result(f"[WARN] 目标实体 '{target_val}' 似乎不存在，但仍将建立链接。")
 
-    # 5. 写回文件
-    new_content = MetadataParser.serialize(metadata) + body
-    with open(entity_file, "w", encoding="utf-8") as f:
-        f.write(new_content)
+                metadata[rel_key] = target_val
+                self.add_result(f"成功建立关系: {normalized_rel} -> {target_val}")
+                changed = True
 
-    # 6. 调用 commit.py
-    commit_script = Path(__file__).parent / "commit.py"
-    try:
-        subprocess.run([
-            sys.executable, str(commit_script),
-            "--path", str(root),
-            "--action", "edit",
-            "--target", entity_name,
-            "--reason", f"Update relation ({predicate}): {reason}"
-        ], check=True)
-    except subprocess.CalledProcessError as e:
-        print(f"[WARN] 文件已更新但自动提交失败: {e}")
+            else:
+                self.add_result("[!] --add 格式无效，应为 'type:target' (跳过)")
 
-def main():
-    if "--memo-cli-info" in sys.argv:
-        print("Description: 在实体 Frontmatter 中增加或删除显式语义关系。")
-        print("Example: memocli manage-relations --path . --entity 人物-cafe3310 --action add --predicate 负责人 --target 概念-Memory-Skill --reason \"项目立项\"")
-        sys.exit(0)
+        # 4. 写回文件
+        if changed:
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            metadata["date modified"] = now
+            metadata["reason"] = self.args.reason
+            
+            new_content = MetadataParser.serialize(metadata) + "\n" + body
+            
+            try:
+                with open(source_file, "w", encoding="utf-8") as f:
+                    f.write(new_content)
+                self.add_result(f"实体文件已更新 (date modified: {now})。")
+            except Exception as e:
+                self.error(f"写回文件失败: {e}")
+        else:
+            self.add_result("未发生任何变更。")
 
-    is_memo_cli = "--memo-cli-call" in sys.argv
-    action_name = Path(__file__).stem.replace("_", "-")
-
-    parser = argparse.ArgumentParser(
-        prog=f"memocli {action_name}" if is_memo_cli else None,
-        description="管理实体的语义关系，自动处理元数据更新与审计。",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=f"用法示例:\n  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} --path . --entity 人物-cafe3310 --action add --predicate 负责人 --target 概念-Memory-Skill --reason \"项目立项\"\n  {'memocli ' + action_name if is_memo_cli else 'python3 ' + Path(__file__).name} -p . -e 宠物-咪咪 -a delete -t 人物-cafe3310 -pr 所有者 -r \"变更关系\""
-    )
-    parser.add_argument("--memo-cli-call", action="store_true", help=argparse.SUPPRESS)
-    parser.add_argument("-p", "--path", required=True, help="知识库根目录。")
-    parser.add_argument("-e", "--entity", required=True, help="要修改的实体名称。")
-    parser.add_argument("-a", "--action", choices=["add", "delete"], required=True, help="执行动作：添加或删除。")
-    parser.add_argument("-pr", "--predicate", required=True, help="谓词（关系类型）。")
-    parser.add_argument("-t", "--target", required=True, help="关联的目标实体名称。")
-    parser.add_argument("-r", "--reason", required=True, help="修改原因。")
-    
-    args = parser.parse_args()
-    
-    try:
-        manage_relation(args.path, args.entity, args.action, args.predicate, args.target, args.reason)
-    except Exception as e:
-        print(f"[ERROR] 关系管理失败: {e}", file=sys.stderr)
-        sys.exit(1)
+        # 5. 完成
+        self.finalize(success=True)
 
 if __name__ == "__main__":
-    main()
+    ManageRelationsScript().run()

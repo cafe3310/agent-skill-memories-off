@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import argparse
 import sys
 import os
 import json
@@ -7,217 +6,26 @@ import re
 import tempfile
 import webbrowser
 from pathlib import Path
-from schema_define import LibraryContext, MetadataParser
+from schema_define import ScriptBase, LibraryContext, MetadataParser
 
-# --- HTML 渲染模板 (Self-contained) ---
-HTML_TEMPLATE = """
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <title>Memories-Off 3D 知识图谱</title>
-    <style>
-        body { margin: 0; background-color: #000; overflow: hidden; font-family: sans-serif; }
-        #graph-container { width: 100vw; height: 100vh; }
-        #info-panel {
-            position: absolute; top: 10px; left: 10px;
-            color: #ccc; background: rgba(0,0,0,0.8);
-            padding: 15px; border-radius: 8px;
-            font-size: 13px; border: 1px solid #444;
-            z-index: 100; line-height: 1.6;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-        }
-        .control-group { margin-top: 10px; border-top: 1px solid #333; padding-top: 10px; }
-        label { cursor: pointer; display: flex; align-items: center; gap: 8px; }
-        input[type="checkbox"] { cursor: pointer; }
-    </style>
-    <script>
-        // 修复部分库在浏览器环境下的环境探测错误
-        var exports = {};
-    </script>
-    <!-- 核心依赖: 使用明确的 UMD 构建版本 -->
-    <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
-    <script src="https://unpkg.com/3d-force-graph@1.73.0/dist/3d-force-graph.min.js"></script>
-</head>
-<body>
-    <div id="graph-container"></div>
-    <div id="info-panel">
-        <strong>Memories-Off 3D Gravity KG</strong><br/>
-        左键: 旋转 | 右键: 平移 | 滚轮: 缩放<br/>
-        点击节点: 聚焦中心
-        <div class="control-group">
-            <label>
-                <input type="checkbox" id="show-labels" checked> 开启节点名称显示
-            </label>
-            <div style="font-size: 11px; color: #888; margin-top: 4px;">
-                (仅在靠近节点时自动显现)
-            </div>
-        </div>
-    </div>
+# --- HTML 渲染模板已从 assets 目录加载 ---
+TEMPLATE_PATH = Path(__file__).parent.parent / "assets" / "graph_template.html"
+try:
+    with open(TEMPLATE_PATH, "r", encoding="utf-8") as f:
+        HTML_TEMPLATE = f.read()
+except Exception as e:
+    # 备退机制: 如果文件丢失，至少报出错误
+    HTML_TEMPLATE = f"<h1>Template Load Error</h1><p>{e}</p>"
 
-    <script>
-        // 由 Python 注入的数据
-        const gData = {DATA_JSON};
-
-        // 状态管理
-        const state = {
-            showLabels: true,
-            labelVisibilityDist: 250 // 相机距离阈值
-        };
-
-        const elem = document.getElementById('graph-container');
-        const Graph = ForceGraph3D()(elem)
-            .graphData(gData)
-            .nodeLabel(node => `${node.type}: ${node.display_name}`)
-            .nodeAutoColorBy('type')
-            .nodeVal(node => {
-                if (node.is_alias) return 2;
-                // 基于文件大小进行根号缩放，最小 5，最大约 30
-                const size = Math.sqrt(node.file_size || 500) / 5;
-                return Math.min(Math.max(size, 5), 30);
-            })
-            .linkDirectionalArrowLength(3.5)
-            .linkDirectionalArrowRelPos(1)
-            .linkCurvature(0.25)
-            .linkWidth(link => link.is_alias_link ? 0.5 : 1)
-            .onNodeClick(node => {
-                // 聚焦逻辑
-                const distance = 80;
-                const distRatio = 1 + distance/Math.hypot(node.x, node.y, node.z);
-                Graph.cameraPosition(
-                    { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio },
-                    node,
-                    2000
-                );
-            })
-            .nodeThreeObject(node => {
-                // 使用 Sprite 渲染文字标签
-                const sprite = new SpriteText(node.display_name);
-                sprite.color = 'white';
-                sprite.textHeight = 4;
-                sprite.padding = 2;
-                sprite.backgroundColor = 'rgba(0,0,0,0.4)';
-                sprite.borderRadius = 2;
-                
-                // 初始显隐逻辑由渲染循环控制，这里挂载自定义属性
-                node.__labelSprite = sprite;
-                return sprite;
-            })
-            .nodeThreeObjectExtend(true); // 保持球体，将文字作为扩展对象
-
-        // --- 引入 SpriteText (ForceGraph3D 常用配套库) ---
-        // 注意：由于是单文件，我们通过动态创建 Script 标签引入或直接用 Canvas 绘制
-        // 为了稳定性和速度，我们手动写一个简单的 Canvas 材质渲染器替代外部依赖
-        function SpriteText(text) {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            const fontSize = 48;
-            ctx.font = `${fontSize}px sans-serif`;
-            const textWidth = ctx.measureText(text).width;
-            
-            canvas.width = textWidth + 20;
-            canvas.height = fontSize + 20;
-            
-            ctx.font = `${fontSize}px sans-serif`;
-            ctx.fillStyle = 'rgba(0,0,0,0.5)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = 'white';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(text, canvas.width / 2, canvas.height / 2);
-            
-            const texture = new THREE.CanvasTexture(canvas);
-            const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
-            const sprite = new THREE.Sprite(spriteMaterial);
-            
-            // 调整缩放比例
-            const aspect = canvas.width / canvas.height;
-            sprite.scale.set(aspect * 4, 4, 1);
-            sprite.position.y = 6; // 悬浮在节点上方
-            
-            return sprite;
-        }
-
-        // --- 动态控制标签显隐 ---
-        const uiToggle = document.getElementById('show-labels');
-        uiToggle.addEventListener('change', (e) => {
-            state.showLabels = e.target.checked;
-        });
-
-        // 在每一帧更新标签显隐
-        function updateLabels() {
-            const camPos = Graph.cameraPosition();
-            const nodes = Graph.graphData().nodes;
-            
-            nodes.forEach(n => {
-                if (n.__labelSprite) {
-                    const dist = Math.hypot(n.x - camPos.x, n.y - camPos.y, n.z - camPos.z);
-                    // 逻辑：开关开启 且 距离足够近
-                    const visible = state.showLabels && dist < state.labelVisibilityDist;
-                    n.__labelSprite.visible = visible;
-                }
-            });
-            requestAnimationFrame(updateLabels);
-        }
-        updateLabels();
-
-        // --- 自定义物理力: 类型引力 (Type-Centric Force) ---
-        Graph.d3Force('type-gravity', (alpha) => {
-            const nodes = Graph.graphData().nodes;
-            const typeCenters = {};
-            
-            // 1. 计算各类型质心
-            const totals = {};
-            nodes.forEach(n => {
-                if (n.is_alias) return; // 别名不参与质心计算
-                if (!totals[n.type]) totals[n.type] = { x: 0, y: 0, z: 0, count: 0 };
-                totals[n.type].x += n.x;
-                totals[n.type].y += n.y;
-                totals[n.type].z += n.z;
-                totals[n.type].count++;
-            });
-            
-            Object.keys(totals).forEach(t => {
-                typeCenters[t] = {
-                    x: totals[t].x / totals[t].count,
-                    y: totals[t].y / totals[t].count,
-                    z: totals[t].z / totals[t].count
-                };
-            });
-
-            // 2. 施加向心力
-            nodes.forEach(n => {
-                const center = typeCenters[n.type];
-                if (center) {
-                    n.vx += (center.x - n.x) * alpha * 0.08;
-                    n.vy += (center.y - n.y) * alpha * 0.08;
-                    n.vz += (center.z - n.z) * alpha * 0.08;
-                }
-            });
-        });
-
-        // 调整连线强度: 别名绑定极强
-        Graph.d3Force('link')
-            .strength(link => link.is_alias_link ? 1.0 : 0.2)
-            .distance(link => link.is_alias_link ? 10 : 60);
-
-    </script>
-</body>
-</html>
-"""
 
 class GraphExporter:
     WIKILINK_PATTERN = re.compile(r"\[\[(.*?)\]\]")
 
-    def __init__(self, library_path: Path):
-        self.ctx = LibraryContext(library_path, "Knowledge Graph")
+    def __init__(self, ctx: LibraryContext):
+        self.ctx = ctx
         self.nodes = []
         self.links = []
-        self.entity_map = {} # raw_name -> id
-
-    def _get_id(self, entity_type: str, name: str) -> str:
-        clean_name = self._clean_display_name(name)
-        return f"{entity_type}-{clean_name}"
+        self.entity_map = {}
 
     def _clean_display_name(self, name: str) -> str:
         return re.sub(r"^[^-]+-", "", name)
@@ -227,153 +35,85 @@ class GraphExporter:
             return json.dumps({"nodes": [], "links": []})
 
         entity_files = list(self.ctx.entities_path.glob("*.md"))
-        
-        # 1. 第一遍扫描：收集所有实体节点
         for file in entity_files:
             try:
                 with open(file, "r", encoding="utf-8") as f:
                     content = f.read()
-                    metadata, body = MetadataParser.split_content(content)
+                    metadata, _ = MetadataParser.split_content(content)
                     e_type = metadata.get("entity type", "未分类")
-                    raw_name = metadata.get("name", file.stem)
+                    raw_name = file.stem
                     display_name = self._clean_display_name(raw_name)
-                    
-                    e_id = self._get_id(e_type, display_name)
+                    e_id = f"{e_type}-{display_name}"
                     self.entity_map[raw_name] = e_id
                     self.entity_map[display_name] = e_id
+                    self.nodes.append({"id": e_id, "display_name": display_name, "type": e_type, "is_alias": False, "file_size": os.path.getsize(file)})
                     
-                    # 获取文件大小 (用于节点尺寸映射)
-                    file_size = os.path.getsize(file) if file.exists() else 0
-                    
-                    self.nodes.append({
-                        "id": e_id,
-                        "display_name": display_name,
-                        "type": e_type,
-                        "is_alias": False,
-                        "file_size": file_size,
-                        "val": 10 # 默认 val，前端会根据 file_size 动态覆盖
-                    })
-                    
-                    # 处理别名
                     aliases = metadata.get("aliases", "")
                     if aliases:
-                        alias_list = [a.strip() for a in aliases.split(",") if a.strip()]
-                        for alias in alias_list:
+                        for alias in [a.strip() for a in aliases.split(",") if a.strip()]:
                             alias_id = f"Alias-{alias}"
-                            self.nodes.append({
-                                "id": alias_id,
-                                "display_name": alias,
-                                "type": e_type,
-                                "is_alias": True,
-                                "val": 3
-                            })
-                            self.links.append({
-                                "source": alias_id,
-                                "target": e_id,
-                                "predicate": "alias_of",
-                                "is_alias_link": True
-                            })
+                            self.nodes.append({"id": alias_id, "display_name": alias, "type": e_type, "is_alias": True, "val": 3})
+                            self.links.append({"source": alias_id, "target": e_id, "predicate": "alias_of", "is_alias_link": True})
                             self.entity_map[alias] = e_id
+            except Exception: pass
 
-            except Exception as e:
-                print(f"[!] 无法解析实体 {file.name}: {e}", file=sys.stderr)
-
-        # 2. 第二遍扫描：建立连接 (Relations & WikiLinks)
         for file in entity_files:
             try:
                 with open(file, "r", encoding="utf-8") as f:
                     content = f.read()
                     metadata, body = MetadataParser.split_content(content)
-                    raw_name = metadata.get("name", file.stem)
-                    source_id = self.entity_map.get(raw_name)
-                    
+                    source_id = self.entity_map.get(file.stem)
                     if not source_id: continue
 
                     for key, val in metadata.items():
                         if key.startswith("relation"):
-                            predicate = "related"
-                            if " as " in key:
-                                predicate = key.split(" as ", 1)[1]
-                            
-                            targets = re.findall(r"\[\[(.*?)\]\]", val)
-                            if not targets:
-                                targets = [val.strip()]
-                            
-                            for target_raw in targets:
-                                target_id = self.entity_map.get(target_raw)
-                                if target_id and target_id != source_id:
-                                    self.links.append({
-                                        "source": source_id,
-                                        "target": target_id,
-                                        "predicate": predicate,
-                                        "is_alias_link": False
-                                    })
+                            predicate = key.split(" as ", 1)[1] if " as " in key else "related"
+                            targets = re.findall(r"\[\[(.*?)\]\]", val) or [val.strip()]
+                            for t in targets:
+                                tid = self.entity_map.get(t)
+                                if tid and tid != source_id:
+                                    self.links.append({"source": source_id, "target": tid, "predicate": predicate, "is_alias_link": False})
 
-                    wiki_targets = self.WIKILINK_PATTERN.findall(body)
-                    for target_raw in wiki_targets:
-                        target_id = self.entity_map.get(target_raw)
-                        if target_id and target_id != source_id:
-                            exists = any(l["source"] == source_id and l["target"] == target_id for l in self.links)
-                            if not exists:
-                                self.links.append({
-                                    "source": source_id,
-                                    "target": target_id,
-                                    "predicate": "mentions",
-                                    "is_alias_link": False
-                                })
-            except Exception:
-                pass
+                    for t in self.WIKILINK_PATTERN.findall(body):
+                        tid = self.entity_map.get(t)
+                        if tid and tid != source_id:
+                            if not any(l["source"] == source_id and l["target"] == tid for l in self.links):
+                                self.links.append({"source": source_id, "target": tid, "predicate": "mentions", "is_alias_link": False})
+            except Exception: pass
 
         return json.dumps({"nodes": self.nodes, "links": self.links}, ensure_ascii=False)
 
-def run_graph(path: str):
-    root = Path(path).resolve()
-    print(f"[*] 正在分析知识库并生成图谱: {root}")
-    
-    exporter = GraphExporter(root)
-    graph_json = exporter.export()
-    
-    html_content = HTML_TEMPLATE.replace("{DATA_JSON}", graph_json)
-    
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".html", mode="w", encoding="utf-8") as tf:
-        tf.write(html_content)
-        temp_path = tf.name
+class GraphScript(ScriptBase):
+    def __init__(self):
+        super().__init__(
+            action_name="graph",
+            description="生成并开启 3D 知识图谱展示 (基于引力场模型)。",
+            example="memocli graph --path ."
+        )
 
-    print(f"[*] 图谱已生成: {temp_path}")
-    
-    try:
-        if webbrowser.open(f"file://{temp_path}"):
-            print("[*] 已尝试在系统浏览器中开启图谱。")
-        else:
-            print(f"[!] 无法自动开启浏览器，请手动访问: file://{temp_path}")
-    except Exception as e:
-        print(f"[!] 开启浏览器失败: {e}")
-        print(f"请手动访问: file://{temp_path}")
+    def run(self):
+        self.setup()
+        ctx = self.ctx
+        self.add_result(f"正在分析知识库并生成图谱: {ctx.root_path}")
+        
+        exporter = GraphExporter(ctx)
+        graph_json = exporter.export()
+        html_content = HTML_TEMPLATE.replace("{DATA_JSON}", graph_json)
+        
+        try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".html", mode="w", encoding="utf-8") as tf:
+                tf.write(html_content)
+                temp_path = tf.name
+            self.add_result(f"图谱已生成至临时文件: {temp_path}")
+            
+            if webbrowser.open(f"file://{temp_path}"):
+                self.add_result("已成功在系统浏览器中开启图谱展示。")
+            else:
+                self.add_result(f"[!] 无法自动开启浏览器，请手动访问: file://{temp_path}")
+        except Exception as e:
+            self.error(f"图谱生成或展示失败: {e}")
 
-def main():
-    if "--memo-cli-info" in sys.argv:
-        print("Description: 生成并开启 3D 知识图谱展示 (基于引力场模型)。")
-        print("Example: memocli graph --path .")
-        sys.exit(0)
-
-    is_memo_cli = "--memo-cli-call" in sys.argv
-    action_name = "graph"
-
-    parser = argparse.ArgumentParser(
-        prog=f"memocli {action_name}" if is_memo_cli else None,
-        description="生成并开启 Memories-Off 3D 知识图谱展示。",
-        formatter_class=argparse.RawDescriptionHelpFormatter
-    )
-    parser.add_argument("--memo-cli-call", action="store_true", help=argparse.SUPPRESS)
-    parser.add_argument("-p", "--path", required=True, help="知识库的根目录路径。")
-    
-    args = parser.parse_args()
-    
-    try:
-        run_graph(args.path)
-    except Exception as e:
-        print(f"[ERROR] 生成图谱失败: {e}", file=sys.stderr)
-        sys.exit(1)
+        self.finalize(success=True)
 
 if __name__ == "__main__":
-    main()
+    GraphScript().run()
