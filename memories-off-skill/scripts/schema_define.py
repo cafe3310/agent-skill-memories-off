@@ -133,6 +133,56 @@ class MetadataParser:
         predicate = re.sub(r"_+", "_", predicate).strip("_")
         return predicate
 
+    @staticmethod
+    def add_relation(metadata: Dict[str, str], predicate: str, target: str) -> bool:
+        """
+        向元数据中安全地添加一个关系目标，支持多值。
+        """
+        normalized_predicate = MetadataParser.normalize_predicate(predicate)
+        rel_key = f"relation as {normalized_predicate}"
+        target_name = MetadataParser.normalize_name(target)
+        
+        existing_val = metadata.get(rel_key, "").strip()
+        if not existing_val:
+            metadata[rel_key] = target_name
+            return True
+        
+        # 解析现有值并检查是否存在
+        targets = [t.strip() for t in existing_val.split(",") if t.strip()]
+        normalized_targets = [MetadataParser.normalize_name(t) for t in targets]
+        
+        if target_name in normalized_targets:
+            return False # 已存在，无需变更
+        
+        targets.append(target_name)
+        metadata[rel_key] = ", ".join(targets)
+        return True
+
+    @staticmethod
+    def remove_relation(metadata: Dict[str, str], predicate: str, target: str) -> bool:
+        """
+        从元数据中移除一个特定的关系目标。
+        """
+        normalized_predicate = MetadataParser.normalize_predicate(predicate)
+        rel_key = f"relation as {normalized_predicate}"
+        target_name = MetadataParser.normalize_name(target)
+        
+        existing_val = metadata.get(rel_key, "").strip()
+        if not existing_val:
+            return False
+        
+        targets = [t.strip() for t in existing_val.split(",") if t.strip()]
+        new_targets = [t for t in targets if MetadataParser.normalize_name(t) != target_name]
+        
+        if len(new_targets) == len(targets):
+            return False # 未找到匹配项
+        
+        if not new_targets:
+            del metadata[rel_key]
+        else:
+            metadata[rel_key] = ", ".join(new_targets)
+        return True
+
 class CustomArgumentParser(argparse.ArgumentParser):
     """
     定制化参数解析器，在保留标准错误提示的基础上，自动输出符合 memocli-result 协议的错误报告。
