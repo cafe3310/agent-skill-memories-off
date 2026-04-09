@@ -7,15 +7,15 @@ class CreateEntityScript(ScriptBase):
     def __init__(self):
         super().__init__(
             action_name="create_entity",
-            description="在知识库中创建一个新的实体文件，并支持定义双向关系。",
-            example="memocli create-entity -n \"ProjectA\" -t \"Project\" --rel-out \"member:Alice,Bob\" --rel-in \"part of:CompanyX\" -r \"初始化项目\""
+            description="在知识库中创建一个新的实体文件，可以一并添加关系（支持双向关联）。",
+            example="memocli create-entity -n \"ProjectA\" -t \"Project\" --add-rel-out \"member:Alice,Bob\" --add-rel-in \"part of:CompanyX\" -r \"初始化项目\""
         )
         self.parser.add_argument("-n", "--name", help="实体名称。")
         self.parser.add_argument("-e", "--entity", help="实体名称 (等价于 --name)。")
         self.parser.add_argument("-t", "--type", required=True, help="实体类型。")
-        self.parser.add_argument("-rel", "--relations", help="[别名] 等价于 --rel-out。")
-        self.parser.add_argument("--rel-out", help="出站关系: 修改当前新实体。格式 'pred:T1,T2'。")
-        self.parser.add_argument("--rel-in", help="入站关系: 修改来源实体，使其指向当前实体。格式 'pred:S1,S2'。")
+        self.parser.add_argument("-rel", "--relations", help="[别名] 等价于 --add-rel-out。")
+        self.parser.add_argument("--add-rel-out", help="追加出站关系: 修改当前新实体。格式 'pred:T1,T2'。")
+        self.parser.add_argument("--add-rel-in", help="追加入站关系: 修改来源实体，使其指向当前实体。格式 'pred:S1,S2'。")
 
     def update_other_entity(self, other_name: str, predicate: str, target: str):
         """更新库中已有的其他实体"""
@@ -68,17 +68,17 @@ class CreateEntityScript(ScriptBase):
             "reason": self.args.reason
         }
 
-        # 2. 处理 rel-out (当前实体 -> 目标)
-        rel_out_str = self.args.rel_out or self.args.relations
-        if rel_out_str:
-            if ":" in rel_out_str:
-                pred, targets_raw = rel_out_str.split(":", 1)
+        # 2. 处理 add-rel-out (当前实体 -> 目标)
+        add_rel_out_str = self.args.add_rel_out or self.args.relations
+        if add_rel_out_str:
+            if ":" in add_rel_out_str:
+                pred, targets_raw = add_rel_out_str.split(":", 1)
                 targets = [t.strip() for t in targets_raw.split(",") if t.strip()]
                 for t in targets:
                     MetadataParser.add_relation(metadata, pred, t)
-                    self.add_result(f"定义出站关系: {pred} -> {t}")
+                    self.add_result(f"追加出站关系: {pred} -> {t}")
             else:
-                self.add_result("[WARN] --rel-out 格式错误，已跳过。")
+                self.add_result("[WARN] --add-rel-out 格式错误，已跳过。")
 
         # 3. 构造文件内容并写入
         content = MetadataParser.serialize(metadata)
@@ -92,15 +92,15 @@ class CreateEntityScript(ScriptBase):
         except Exception as e:
             self.error(f"写入文件失败: {e}")
 
-        # 4. 处理 rel-in (来源 -> 当前实体)
-        if self.args.rel_in:
-            if ":" in self.args.rel_in:
-                pred, sources_raw = self.args.rel_in.split(":", 1)
+        # 4. 处理 add-rel-in (来源 -> 当前实体)
+        if self.args.add_rel_in:
+            if ":" in self.args.add_rel_in:
+                pred, sources_raw = self.args.add_rel_in.split(":", 1)
                 sources = [s.strip() for s in sources_raw.split(",") if s.strip()]
                 for s in sources:
                     self.update_other_entity(s, pred, normalized_name)
             else:
-                self.add_result("[WARN] --rel-in 格式错误，已跳过。")
+                self.add_result("[WARN] --add-rel-in 格式错误，已跳过。")
 
         self.finalize(success=True)
 
