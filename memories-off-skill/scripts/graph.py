@@ -68,9 +68,10 @@ class GraphExporter:
                     for key, val in metadata.items():
                         if key.startswith("relation"):
                             predicate = key.split(" as ", 1)[1] if " as " in key else "related"
-                            targets = re.findall(r"\[\[(.*?)\]\]", val) or [val.strip()]
+                            # 优先处理 [[WikiLinks]]，否则处理逗号分隔列表
+                            targets = self.WIKILINK_PATTERN.findall(val) or [t.strip() for t in val.split(",") if t.strip()]
                             for t in targets:
-                                tid = self.entity_map.get(t)
+                                tid = self.entity_map.get(t) or self.entity_map.get(MetadataParser.normalize_name(t))
                                 if tid and tid != source_id:
                                     self.links.append({"source": source_id, "target": tid, "predicate": predicate, "is_alias_link": False})
 

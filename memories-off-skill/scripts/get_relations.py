@@ -42,7 +42,9 @@ class GetRelationsScript(ScriptBase):
                     if " as " in key:
                         rel_type = key.split(" as ")[1]
                         if not self.args.type or self.args.type.lower() in rel_type.lower():
-                            explicit_out.append((rel_type, val))
+                            # 分割并去重
+                            for t in [x.strip() for x in val.split(",") if x.strip()]:
+                                explicit_out.append((rel_type, t))
                 
                 # 隐式流出 (WikiLinks)
                 links = re.findall(r"\[\[(.*?)\]\]", body)
@@ -67,10 +69,13 @@ class GetRelationsScript(ScriptBase):
                     
                     # 显式流入
                     for k, v in m.items():
-                        if " as " in k and v == target_name:
-                            rel_type = k.split(" as ")[1]
-                            if not self.args.type or self.args.type.lower() in rel_type.lower():
-                                explicit_in.append((name, rel_type))
+                        if " as " in k:
+                            # 拆分多值并规范化比较
+                            vals = [MetadataParser.normalize_name(x.strip()) for x in v.split(",") if x.strip()]
+                            if target_name in vals:
+                                rel_type = k.split(" as ")[1]
+                                if not self.args.type or self.args.type.lower() in rel_type.lower():
+                                    explicit_in.append((name, rel_type))
                     
                     # 隐式流入
                     if f"[[{target_name}]]" in b or f"[[{target_name}|" in b:
