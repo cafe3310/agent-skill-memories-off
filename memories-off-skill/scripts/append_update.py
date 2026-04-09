@@ -7,13 +7,13 @@ class AppendUpdateScript(ScriptBase):
     def __init__(self):
         super().__init__(
             action_name="append-update",
-            description="向已有实体追加更新块（Buffer-Update 模式），可以一并添加关系（支持双向关联）。",
-            example="memocli append-update -e \"A\" -c \"新内容\" --add-rel-out \"friend:B\" -r \"更新关联\""
+            description="向已有实体追加更新块（Buffer-Update 模式），可以一并添加多组复杂的双向关系关联。",
+            example="memocli append-update -e \"A\" -c \"新内容\" --add-rel-out \"friend:B\" --add-rel-out \"work:C\" -r \"更新\""
         )
         self.parser.add_argument("-e", "--entity", required=True, help="实体名称。")
         self.parser.add_argument("-c", "--content", required=True, help="追加的内容。")
-        self.parser.add_argument("--add-rel-out", help="追加出站关系: 修改当前实体。格式 'pred:T1,T2'。")
-        self.parser.add_argument("--add-rel-in", help="追加入站关系: 修改来源实体指向当前实体。格式 'pred:S1,S2'。")
+        self.parser.add_argument("--add-rel-out", action="append", help="追加出站关系: 修改当前实体。支持多次使用。格式 'pred:T1,T2'。")
+        self.parser.add_argument("--add-rel-in", action="append", help="追加入站关系: 修改来源实体指向当前实体支持多次使用。格式 'pred:S1,S2'。")
 
     def update_other_entity(self, other_name: str, predicate: str, target: str):
         """更新库中已有的其他实体"""
@@ -71,16 +71,17 @@ class AppendUpdateScript(ScriptBase):
             metadata["date modified"] = now
             metadata["reason"] = self.args.reason
             
-            # 处理 add-rel-out
+            # 处理 add-rel-out (List of Strings)
             if self.args.add_rel_out:
-                if ":" in self.args.add_rel_out:
-                    pred, targets_raw = self.args.add_rel_out.split(":", 1)
-                    targets = [t.strip() for t in targets_raw.split(",") if t.strip()]
-                    for t in targets:
-                        if MetadataParser.add_relation(metadata, pred, t):
-                            self.add_result(f"追加出站关系: {pred} -> {t}")
-                else:
-                    self.add_result("[WARN] --add-rel-out 格式错误")
+                for rel_str in self.args.add_rel_out:
+                    if ":" in rel_str:
+                        pred, targets_raw = rel_str.split(":", 1)
+                        targets = [t.strip() for t in targets_raw.split(",") if t.strip()]
+                        for t in targets:
+                            if MetadataParser.add_relation(metadata, pred, t):
+                                self.add_result(f"追加出站关系: {pred} -> {t}")
+                    else:
+                        self.add_result(f"[!] 格式错误: {rel_str}")
 
             new_content = MetadataParser.serialize(metadata) + "\n" + body
             with open(target_file, "w", encoding="utf-8") as f:
@@ -89,15 +90,16 @@ class AppendUpdateScript(ScriptBase):
         except Exception as e:
             self.add_result(f"[!] 同步中心实体元数据失败: {e}")
 
-        # 3. 处理 add-rel-in
+        # 3. 处理 add-rel-in (List of Strings)
         if self.args.add_rel_in:
-            if ":" in self.args.add_rel_in:
-                pred, sources_raw = self.args.add_rel_in.split(":", 1)
-                sources = [s.strip() for s in sources_raw.split(",") if s.strip()]
-                for s in sources:
-                    self.update_other_entity(s, pred, normalized_name)
-            else:
-                self.add_result("[WARN] --add-rel-in 格式错误")
+            for rel_str in self.args.add_rel_in:
+                if ":" in rel_str:
+                    pred, sources_raw = rel_str.split(":", 1)
+                    sources = [s.strip() for s in sources_raw.split(",") if s.strip()]
+                    for s in sources:
+                        self.update_other_entity(s, pred, normalized_name)
+                else:
+                    self.add_result(f"[!] 格式错误: {rel_str}")
 
         self.finalize(success=True)
 
