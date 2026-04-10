@@ -1,10 +1,9 @@
 ---
 entity type: 概念
 date created: 2026-03-28
-date modified: 2026-03-28
+date modified: 2026-04-10 12:34:07
 aliases: memories-off, 长期记忆工具
-status: 草稿
-relation as 负责人: 人物-cafe3310
+relation as 负责人: cafe3310
 ---
 
 # 概念定义 (Definition)
@@ -16,5 +15,5 @@ relation as 负责人: 人物-cafe3310
 - **通用语言**: 统一使用 `Heading`, `Section`, `Content`, `TOC` 等术语。
 
 # 相关实体 (Relations)
-- **创始人**: [[人物-cafe3310]]
+- **创始人**: [[cafe3310]]
 - **存储方案**: 基于文件系统。

@@ -28,20 +28,37 @@ def create_memocli():
         valid_subcommands.append(display_name)
             
         try:
-            # 运行脚本获取描述
+            # 运行脚本获取描述和示例
             result = subprocess.run(
                 [sys.executable, str(py_file), "--memo-cli-info"],
                 capture_output=True, text=True, timeout=2
             )
             if result.returncode == 0:
                 desc = "无说明"
+                example = ""
+                enum_info = []
                 for line in result.stdout.splitlines():
                     if line.startswith("Description:"):
                         desc = line.replace("Description:", "").strip()
-                        break
-                # 关键修复：转义描述中的双引号，防止破坏 Bash 脚本语法
+                    elif line.startswith("Example:"):
+                        example = line.replace("Example:", "").strip()
+                    elif line.startswith("Enum (") or line.strip().startswith("- "):
+                        enum_info.append(line)
+                
+                # 转义描述和示例中的双引号，防止破坏 Bash 脚本语法
                 safe_desc = desc.replace('"', '\\"')
                 subcommands_info.append(f"    echo \"  {display_name:<20} - {safe_desc}\"")
+                
+                if example:
+                    safe_example = example.replace('"', '\\"')
+                    subcommands_info.append(f"    echo \"    Example: {safe_example}\"")
+                
+                if enum_info:
+                    for enum_line in enum_info:
+                        safe_enum = enum_line.replace('"', '\\"')
+                        subcommands_info.append(f"    echo \"    {safe_enum}\"")
+                
+                subcommands_info.append(f"    echo \"\"")
             else:
                 subcommands_info.append(f"    echo \"  {display_name:<20} - (无法获取描述)\"")
         except Exception:

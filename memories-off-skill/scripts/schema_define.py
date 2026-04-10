@@ -87,6 +87,7 @@ class MetadataParser:
         # 按照特定顺序排列（可选，但有助于美观）
         # 优先排列 entity type, date created, date modified 等核心字段
         core_keys = ["entity type", "date created", "date modified", "aliases"]
+
         seen_keys = set()
         
         for k in core_keys:
@@ -215,10 +216,11 @@ class ScriptBase:
     """
     Agent Skill 脚本基类，提供模型优先的统一输出格式。
     """
-    def __init__(self, action_name: str, description: str, example: str = ""):
+    def __init__(self, action_name: str, description: str, example: str = "", enum_details: Dict[str, Dict[str, str]] = None):
         self.action_name = action_name
         self.description = description
         self.example = example
+        self.enum_details = enum_details or {}
         self.is_memo_cli = "--memo-cli-call" in sys.argv
         self.result_content: List[str] = []
         self._check_info()
@@ -232,15 +234,30 @@ class ScriptBase:
             print(f"Description: {self.description}")
             if self.example:
                 print(f"Example: {self.example}")
+            if self.enum_details:
+                for param, choices in self.enum_details.items():
+                    print(f"Enum ({param}):")
+                    for choice, desc in choices.items():
+                        print(f"  - {choice}: {desc}")
             sys.exit(0)
 
     def _init_parser(self) -> CustomArgumentParser:
         # 子命令展示时统一用中划线
         display_name = self.action_name.replace("_", "-")
         prog = f"memocli {display_name}" if self.is_memo_cli else None
+        
+        # 构造增强后的 description
+        full_desc = self.description
+        if self.enum_details:
+            full_desc += "\n\nEnum Details:"
+            for param, choices in self.enum_details.items():
+                full_desc += f"\n  {param}:"
+                for choice, desc in choices.items():
+                    full_desc += f"\n    - {choice:<12} : {desc}"
+
         parser = CustomArgumentParser(
             prog=prog,
-            description=self.description,
+            description=full_desc,
             formatter_class=argparse.RawDescriptionHelpFormatter,
             epilog=f"Example:\n  {self.example}" if self.example else None,
             add_help=True

@@ -8,7 +8,7 @@ class AppendUpdateScript(ScriptBase):
         super().__init__(
             action_name="append-update",
             description="向已有实体追加更新块（Buffer-Update 模式），可以一并添加多组复杂的双向关系关联。",
-            example="memocli append-update -e \"A\" -c \"新内容\" --add-rel-out \"friend:B\" --add-rel-out \"work:C\" -r \"更新\""
+            example='memocli append-update --entity "实体名称" --content "在此输入追加内容" --add-rel-out "关系谓词:目标1" --reason "理由"'
         )
         self.parser.add_argument("-e", "--entity", required=True, help="实体名称。")
         self.parser.add_argument("-c", "--content", required=True, help="追加的内容。")
@@ -29,7 +29,6 @@ class AppendUpdateScript(ScriptBase):
             if MetadataParser.add_relation(metadata, predicate, target):
                 now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 metadata["date modified"] = now
-                metadata["reason"] = self.args.reason
                 new_content = MetadataParser.serialize(metadata) + "\n" + body
                 with open(file_path, "w", encoding="utf-8") as f:
                     f.write(new_content)
@@ -69,7 +68,6 @@ class AppendUpdateScript(ScriptBase):
                 content = f.read()
             metadata, body = MetadataParser.split_content(content)
             metadata["date modified"] = now
-            metadata["reason"] = self.args.reason
             
             # 处理 add-rel-out (List of Strings)
             if self.args.add_rel_out:

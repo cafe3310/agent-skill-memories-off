@@ -11,7 +11,7 @@ class SearchScript(ScriptBase):
         super().__init__(
             action_name="search",
             description="在知识库中通过模式（正则表达式）检索实体。支持名称、元数据和正文搜索。",
-            example="memocli search \"五一\" --content --names-only"
+            example='memocli search "搜索模式串" --name --names-only'
         )
         self.parser.add_argument("pattern", help="要搜索的模式（支持正则表达式）。")
         # 搜索范围

@@ -38,17 +38,24 @@
         const elem = document.getElementById('graph-container');
         const Graph = ForceGraph3D()(elem)
             .graphData(gData)
+
             .nodeLabel(node => `${node.type}: ${node.display_name}`)
             .nodeAutoColorBy('type')
-            .nodeVal(node => node.is_alias ? 2 : Math.min(Math.max(Math.sqrt(node.file_size || 500) / 5, 5), 30))
+            .nodeVal(node => node.is_alias ? 2 : Math.min(Math.max(Math.sqrt(node.file_size || 500) / 5, 5), 20))
+            .nodeResolution(10)
+
+            .linkWidth(0)
             .linkDirectionalArrowLength(3.5)
             .linkDirectionalArrowRelPos(1)
-            .linkCurvature(0.25)
+            .linkDirectionalArrowResolution(3)
+            .linkCurvature(0.1)
+
             .onNodeClick(node => {
                 const distance = 80;
                 const distRatio = 1 + distance/Math.hypot(node.x, node.y, node.z);
                 Graph.cameraPosition({ x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio }, node, 2000);
             })
+
             .nodeThreeObject(node => {
                 const sprite = new SpriteText(node.display_name);
                 sprite.color = 'white'; sprite.textHeight = 4;

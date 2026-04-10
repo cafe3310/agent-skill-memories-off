@@ -8,7 +8,7 @@ class ManageRelationsScript(ScriptBase):
         super().__init__(
             action_name="manage_relations",
             description="管理实体间的显式语义关系，支持追加出站(add-rel-out)、入站(add-rel-in)或移除(remove-rel-out)操作，支持重复参数以添加多组关系。",
-            example="memocli manage-relations -s \"A\" --add-rel-out \"friend:B\" --add-rel-out \"work:C\" -r \"关联多组关系\""
+            example='memocli manage-relations --source "中心实体" --add-rel-out "关系A:目标1,目标2" --add-rel-out "关系B:目标3" --reason "理由"'
         )
         self.parser.add_argument("-s", "--source", required=True, help="中心实体名称。")
         self.parser.add_argument("--add-rel-out", action="append", help="追加出站关系: 修改中心实体。支持多次使用。格式 'pred:T1,T2'。")
@@ -39,7 +39,6 @@ class ManageRelationsScript(ScriptBase):
             if changed:
                 now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 metadata["date modified"] = now
-                metadata["reason"] = self.args.reason
                 new_content = MetadataParser.serialize(metadata) + "\n" + body
                 with open(file_path, "w", encoding="utf-8") as f:
                     f.write(new_content)

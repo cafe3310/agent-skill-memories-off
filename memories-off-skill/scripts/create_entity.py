@@ -8,7 +8,7 @@ class CreateEntityScript(ScriptBase):
         super().__init__(
             action_name="create_entity",
             description="在知识库中创建一个新的实体文件，可以一并添加多组复杂的双向关系。",
-            example="memocli create-entity -n \"Alice\" -t \"Person\" --add-rel-out \"member:TeamA\" --add-rel-out \"author:Doc1\" -r \"初始化关联\""
+            example='memocli create-entity --name "实体名称" --type "类型" --add-rel-out "关系谓词:目标1,目标2" --reason "审计理由"'
         )
         self.parser.add_argument("-n", "--name", help="实体名称。")
         self.parser.add_argument("-e", "--entity", help="实体名称 (等价于 --name)。")
@@ -33,7 +33,6 @@ class CreateEntityScript(ScriptBase):
             if MetadataParser.add_relation(metadata, predicate, target):
                 now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 metadata["date modified"] = now
-                metadata["reason"] = self.args.reason
                 new_content = MetadataParser.serialize(metadata) + "\n" + body
                 with open(file_path, "w", encoding="utf-8") as f:
                     f.write(new_content)
@@ -63,8 +62,7 @@ class CreateEntityScript(ScriptBase):
         metadata = {
             "entity type": self.args.type,
             "date created": now,
-            "date modified": now,
-            "reason": self.args.reason
+            "date modified": now
         }
 
         # 2. 处理 add-rel-out (List of Strings)
