@@ -43,7 +43,7 @@
 
 ### 如果你已经有 Coding Agent
 
-可以告诉它「Clone 这个仓库 https://github.com/cafe3310/agent-skill-memories-off/ 到临时目录，阅读其 README.md，将其 memories-off-skill 目录安装到我们的 Agent Skill 目录，然后执行其内部的 scripts/install.py 以安装 CLI 工具」。
+可以告诉它「Clone 这个仓库 https://github.com/cafe3310/agent-skill-memories-off/ 到临时目录，阅读其 README.md，将其 memories-off-skill 目录改名为 memories-off 并复制到我们的 Agent Skill 目录，然后执行复制后目录其内部的 scripts/install.py 以安装 CLI 工具」。
 
 ### 安装 Skill 与 CLI
 
