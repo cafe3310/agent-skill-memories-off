@@ -14,10 +14,11 @@ NEW_BLOCK_RE = re.compile(
 class ConsolidateUpdatesScript(ScriptBase):
     def __init__(self):
         super().__init__(
-            action_name="consolidate_updates",
-            description="将实体末尾的缓冲更新块合并到正式章节中（梦境整理）。",
-            example="memocli consolidate-updates --path . --reason \"定期整理\""
+            action_name="consolidate-updates",
+            description="[高影响/严禁自动执行] 将实体末尾的缓冲更新块合并到正式章节中。除非用户明确指令，Agent 不得擅自运行此命令。",
+            example='memocli consolidate-updates --path . --reason "定期整理任务内容"'
         )
+
 
     def consolidate_entity(self, file_path: Path):
         """解析并合并单个实体的所有更新块。"""
