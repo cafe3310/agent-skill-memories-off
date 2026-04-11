@@ -80,6 +80,7 @@ echo "即将执行以下操作："
 echo "1. 将 $SOURCE_DIR 软链接到 $TARGET_SKILLS/$SKILL_NAME (注意：已重命名)"
 echo "2. 将 $SKILL_NAME 添加到 $TARGET_SKILLS/.gitignore"
 echo "3. 尝试从 Git 版本控制中移除已有的软链接（git rm --cached）"
+echo "4. 安装 memocli 命令行工具 (需要 python3)"
 echo
 read -p "是否确定继续？(y/N) " global_confirm
 if [[ "$global_confirm" != "y" && "$global_confirm" != "Y" ]]; then
@@ -120,6 +121,16 @@ if [ "$IS_GIT_REPO" = true ]; then
     fi
     # 从 Git 缓存中移除 (防止之前已被提交)
     (cd "$TARGET_SKILLS" && git rm --cached -r "$SKILL_NAME" 2>/dev/null && echo " [Git] 已从缓存中移除 $SKILL_NAME") || true
+fi
+
+# --- 增加 memocli 安装逻辑 ---
+echo "------------------------------------------------"
+echo "正在安装 memocli ..."
+if command -v python3 &>/dev/null; then
+    # 使用 python3 执行安装脚本
+    python3 "$SOURCE_DIR/scripts/install.py"
+else
+    echo " [警告] 未找到 python3，跳过 memocli 安装。请手动执行: python3 $SOURCE_DIR/scripts/install.py"
 fi
 
 echo "------------------------------------------------"
