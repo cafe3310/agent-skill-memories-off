@@ -48,7 +48,7 @@ class SearchScript(ScriptBase):
         safe_entities_dir = shlex.quote(str(entities_dir))
 
         safe_pattern = shlex.quote(search_pattern)
-        
+        results = []
         if scope == "name":
             # 搜索文件名
             cmd = f"ls {safe_entities_dir} | grep -iE {safe_pattern}"
