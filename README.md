@@ -41,23 +41,22 @@
 
 ## 快速开始
 
-### 如果你已经有 Coding Agent
+### 自动安装 (通过 Agent)
 
-可以告诉它「Clone 这个仓库 https://github.com/cafe3310/agent-skill-memories-off/ 到临时目录，阅读其 README.md，将其 memories-off-skill 目录改名为 memories-off 并复制到我们的 Agent Skill 目录，然后执行复制后目录其内部的 scripts/install.py 以安装 CLI 工具」。
+如果您使用的是支持自动执行的 Coding Agent (例如 Gemini CLI, Claude 等)，您可以直接对它说：
+「Clone 这个仓库 https://github.com/cafe3310/agent-skill-memories-off/ 到临时目录，将其中的 memories-off-skill 复制到我们的 Agent Skill 目录，并执行其内部的 scripts/install.py 以安装 CLI 工具。」
 
-### 安装 Skill 与 CLI
+### 手动安装 (Skill 与 CLI)
 
-本项目目前以 Agent Skill 的形式提供服务，包含一个 cli 工具 `memocli`，它是对内部 Python 脚本的封装。
+本项目目前以 Agent Skill 的形式提供服务，包含一个命令行工具 `memocli`，它是对内部 Python 脚本的封装。安装脚本会自动探测环境、兼容 Python 版本（运行安装脚本支持 Python 2/3，但工具运行依赖 Python 3.7+），并将 `memocli` 包装器安装到您的系统 `PATH` 中。
 
 1. 将本项目链接或复制到您的 Agent Skill 目录中（例如 `~/.agents/skills/memories-off-skill`）。
-2. **安装命令行工具 `memocli`**。
-   你可以让 Agent 帮你安装。说「帮我安装 memories-off-skill 的命令行工具 `memocli`」即可。
-   或者手动在终端安装：
+2. 在终端执行安装脚本：
    ```bash
    cd memories-off-skill
-   python3 scripts/install.py
+   python scripts/install.py
    ```
-   安装脚本 `install.py` 会自动探测路径并将 `memocli` 包装器安装到您的系统 `PATH` 中。
+   *注意：如果您的系统默认 `python` 是 Python 2，脚本会自动在系统中寻找可用的 Python 3 环境来完成后续配置。*
 
 ### 使用 memocli 管理知识库
 
