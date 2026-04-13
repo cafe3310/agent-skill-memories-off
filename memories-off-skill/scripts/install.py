@@ -1,25 +1,48 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+from __future__ import print_function
 import os
 import sys
 import subprocess
-from pathlib import Path
+import glob
+import io
 
 def create_memocli():
     """
     创建并安装 memocli 包装器，支持自动发现子命令描述。
+    兼顾 Python 2 环境，自动识别 Python 3。
     """
     # 1. 获取路径
-    script_dir = Path(__file__).parent.resolve()
-    skill_root = script_dir.parent
-    skill_md_path = skill_root / "SKILL.md"
+    script_dir = os.path.abspath(os.path.dirname(__file__))
+    skill_root = os.path.dirname(script_dir)
+    skill_md_path = os.path.join(skill_root, "SKILL.md")
+    
+    # 0. Check python version to find a suitable python3 for subcommands
+    python_cmd = sys.executable
+    if sys.version_info < (3, 7):
+        print("[INFO] 当前运行环境低于 Python 3.7，尝试寻找系统中的 Python 3 环境以解析子命令...")
+        found_python3 = None
+        for cmd in ["python3", "python3.11", "python3.10", "python3.9", "python3.8", "python3.7", "python"]:
+            try:
+                with open(os.devnull, 'w') as devnull:
+                    if subprocess.call([cmd, "-c", "import sys; sys.exit(0 if sys.version_info >= (3,7) else 1)"], stdout=devnull, stderr=devnull) == 0:
+                        found_python3 = cmd
+                        break
+            except Exception:
+                pass
+        if not found_python3:
+            print("[WARN] 未能找到 Python 3.7+，子命令解析可能会失败。生成的 memocli 会在运行时重试。")
+        else:
+            print("[INFO] 找到 Python 3: " + found_python3)
+            python_cmd = found_python3
     
     # 2. 自动获取子命令列表及其描述
     subcommands_info = []
     valid_subcommands = []
-    py_files = sorted(script_dir.glob("*.py"))
+    py_files = sorted(glob.glob(os.path.join(script_dir, "*.py")))
     
     for py_file in py_files:
-        name = py_file.stem
+        name = os.path.splitext(os.path.basename(py_file))[0]
         if name in ["install", "schema_define"] or name.startswith("_"):
             continue
             
@@ -29,15 +52,23 @@ def create_memocli():
             
         try:
             # 运行脚本获取描述和示例
-            result = subprocess.run(
-                [sys.executable, str(py_file), "--memo-cli-info"],
-                capture_output=True, text=True, timeout=2
+            proc = subprocess.Popen(
+                [python_cmd, py_file, "--memo-cli-info"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
             )
-            if result.returncode == 0:
+            stdout, stderr = proc.communicate()
+            
+            if sys.version_info[0] >= 3:
+                stdout_str = stdout.decode('utf-8')
+            else:
+                stdout_str = stdout # string in py2
+                
+            if proc.returncode == 0:
                 desc = "无说明"
                 example = ""
                 enum_info = []
-                for line in result.stdout.splitlines():
+                for line in stdout_str.splitlines():
                     if line.startswith("Description:"):
                         desc = line.replace("Description:", "").strip()
                     elif line.startswith("Example:"):
@@ -46,49 +77,64 @@ def create_memocli():
                         enum_info.append(line)
                 
                 # 转义描述和示例中的双引号，防止破坏 Bash 脚本语法
-                safe_desc = desc.replace('"', '\\"')
-                subcommands_info.append(f"    echo \"  {display_name:<20} - {safe_desc}\"")
+                safe_desc = desc.replace('"', '\"')
+                subcommands_info.append('    echo "  %-20s - %s"' % (display_name, safe_desc))
                 
                 if example:
-                    safe_example = example.replace('"', '\\"')
-                    subcommands_info.append(f"    echo \"    Example: {safe_example}\"")
+                    safe_example = example.replace('"', '\"')
+                    subcommands_info.append('    echo "    Example: %s"' % safe_example)
                 
                 if enum_info:
                     for enum_line in enum_info:
-                        safe_enum = enum_line.replace('"', '\\"')
-                        subcommands_info.append(f"    echo \"    {safe_enum}\"")
+                        safe_enum = enum_line.replace('"', '\"')
+                        subcommands_info.append('    echo "    %s"' % safe_enum)
                 
-                subcommands_info.append(f"    echo \"\"")
+                subcommands_info.append('    echo ""')
             else:
-                subcommands_info.append(f"    echo \"  {display_name:<20} - (无法获取描述)\"")
-        except Exception:
-            subcommands_info.append(f"    echo \"  {name:<20} - (加载失败)\"")
+                subcommands_info.append('    echo "  %-20s - (无法获取描述)"' % display_name)
+        except Exception as e:
+            subcommands_info.append('    echo "  %-20s - (加载失败: %s)"' % (name, str(e)))
 
     subcommands_list_bash = "\n".join(subcommands_info)
     subcommands_joined = ",".join(valid_subcommands)
 
     # 3. 确定安装路径
-    target_bin = Path("/usr/local/bin")
+    target_bin = "/usr/local/bin"
     if not os.access(target_bin, os.W_OK):
-        target_bin = Path.home() / ".local" / "bin"
-        target_bin.mkdir(parents=True, exist_ok=True)
+        target_bin = os.path.join(os.path.expanduser("~"), ".local", "bin")
+        if not os.path.exists(target_bin):
+            os.makedirs(target_bin)
 
         path_env = os.environ.get("PATH", "")
-        if str(target_bin) not in path_env:
-            print(f"[WARN] {target_bin} 不在 PATH 中，请手动添加。")
+        if target_bin not in path_env:
+            print("[WARN] %s 不在 PATH 中，请手动添加。" % target_bin)
 
-    install_path = target_bin / "memocli"
+    install_path = os.path.join(target_bin, "memocli")
 
-    # 4. 构造 memocli 脚本内容 (使用 RAW 字符串 or 正确处理 $ 符号)
-    # 在 Python 3.6+ f-string 中，$ 不需要转义，除非后面跟着 {
-    content = f"""#!/bin/bash
-    # memocli: memories-off 技能的命令行包装器
+    # 4. 构造 memocli 脚本内容
+    content = """#!/bin/bash
+# memocli: memories-off 技能的命令行包装器
 
-    SCRIPTS_DIR="{script_dir}"
-    PYTHON_CMD="python3"
-    SKILL_MD="{skill_md_path}"
-    VALID_SUBS="{subcommands_joined}"
+SCRIPTS_DIR="{script_dir}"
+SKILL_MD="{skill_md_path}"
+VALID_SUBS="{subcommands_joined}"
 
+# --- 0. 环境检查: 寻找 Python 3 ---
+PYTHON_CMD=""
+for cmd in python3 python3.11 python3.10 python3.9 python3.8 python3.7 python; do
+    if command -v "$cmd" >/dev/null 2>&1; then
+        VER=$("$cmd" -c 'import sys; print(1 if sys.version_info >= (3,7) else 0)' 2>/dev/null)
+        if [ "$VER" = "1" ]; then
+            PYTHON_CMD="$cmd"
+            break
+        fi
+    fi
+done
+
+if [ -z "$PYTHON_CMD" ]; then
+    echo "[错误] memocli 需要 Python 3.7+ 环境。未找到有效的 python 执行路径。"
+    exit 1
+fi
 
 ACTION=$1
 
@@ -160,19 +206,27 @@ if [ "$HAS_PATH" = false ] && [ -f "meta.md" ]; then
 else
     $PYTHON_CMD "$SCRIPT_PATH" --memo-cli-call "$@"
 fi
-"""
+""".format(
+        script_dir=script_dir,
+        skill_md_path=skill_md_path,
+        subcommands_joined=subcommands_joined,
+        subcommands_list_bash=subcommands_list_bash
+    )
 
     # 5. 写入文件并赋予权限
     try:
-        with open(install_path, "w", encoding="utf-8") as f:
+        # 兼容 Python 2 的 io.open 写入中文字符串
+        if sys.version_info[0] < 3:
+            content = content.decode('utf-8')
+        with io.open(install_path, "w", encoding="utf-8") as f:
             f.write(content)
         
         os.chmod(install_path, 0o755)
         
-        print(f"[SUCCESS] memocli 已安装到: {install_path}")
+        print("[SUCCESS] memocli 已安装到: %s" % install_path)
         print("您可以运行 'memocli --help' 查看详细说明。")
     except Exception as e:
-        print(f"[ERROR] 安装失败: {e}")
+        print("[ERROR] 安装失败: %s" % e)
         sys.exit(1)
 
 if __name__ == "__main__":
