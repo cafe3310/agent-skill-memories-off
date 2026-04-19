@@ -6,7 +6,8 @@ import re
 import tempfile
 import webbrowser
 from pathlib import Path
-from utility.schema_define import ScriptBase, LibraryContext, MetadataParser
+from utility.runtime import ScriptBase
+from utility.schema_define import LibraryContext, MetadataParser
 
 # --- HTML 渲染模板已从 assets 目录加载 ---
 TEMPLATE_PATH = Path(__file__).parent.parent / "assets" / "graph_template.html"

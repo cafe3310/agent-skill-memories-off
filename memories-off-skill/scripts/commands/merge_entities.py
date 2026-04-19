@@ -2,7 +2,8 @@
 import sys
 import re
 from pathlib import Path
-from utility.schema_define import ScriptBase, MetadataParser
+from utility.runtime import ScriptBase
+from utility.schema_define import MetadataParser
 from datetime import datetime
 
 class MergeEntitiesScript(ScriptBase):

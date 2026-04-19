@@ -2,7 +2,7 @@
 import sys
 import re
 from pathlib import Path
-from utility.schema_define import ScriptBase
+from utility.runtime import ScriptBase
 
 class AuditFixScript(ScriptBase):
     def __init__(self):

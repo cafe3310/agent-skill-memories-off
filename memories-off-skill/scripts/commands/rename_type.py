@@ -3,7 +3,8 @@ import sys
 import subprocess
 from pathlib import Path
 from datetime import datetime
-from utility.schema_define import ScriptBase, MetadataParser
+from utility.runtime import ScriptBase
+from utility.schema_define import MetadataParser
 
 class RenameTypeScript(ScriptBase):
     def __init__(self):

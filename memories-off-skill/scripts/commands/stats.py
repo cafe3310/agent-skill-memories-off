@@ -2,7 +2,8 @@
 import sys
 from collections import Counter
 from pathlib import Path
-from utility.schema_define import ScriptBase, MetadataParser
+from utility.runtime import ScriptBase
+from utility.schema_define import MetadataParser
 
 class StatsScript(ScriptBase):
     def __init__(self):

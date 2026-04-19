@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import sys
 from pathlib import Path
-from utility.schema_define import ScriptBase
+from utility.runtime import ScriptBase
 
 class CommitScript(ScriptBase):
     def __init__(self):

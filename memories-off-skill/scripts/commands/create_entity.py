@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 import sys
 from datetime import datetime
-from utility.schema_define import ScriptBase, MetadataParser
+from utility.runtime import ScriptBase
+from utility.schema_define import MetadataParser
 
 class CreateEntityScript(ScriptBase):
     def __init__(self):

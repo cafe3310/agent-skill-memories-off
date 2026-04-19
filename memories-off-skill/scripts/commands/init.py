@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 import sys
 from pathlib import Path
-from utility.schema_define import ScriptBase, LibraryContext
+from utility.runtime import ScriptBase
+from utility.schema_define import LibraryContext
 
 class InitScript(ScriptBase):
     def __init__(self):
