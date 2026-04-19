@@ -2,7 +2,7 @@
 import sys
 from datetime import datetime
 from utility.runtime import ScriptBase
-from utility.schema_define import MetadataParser
+from utility.schema_define import MetadataParser, UpdateBlockManager
 
 class AppendUpdateScript(ScriptBase):
     def __init__(self):
@@ -52,9 +52,7 @@ class AppendUpdateScript(ScriptBase):
 
         # 1. 构造并追加更新块
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        update_block = f"\n<!-- UPDATE_BLOCK_START: {now} | reason: {self.args.reason} -->\n"
-        update_block += MetadataParser.normalize_wikilinks(self.args.content.strip())
-        update_block += f"\n<!-- UPDATE_BLOCK_END -->\n"
+        update_block = UpdateBlockManager.create_block(self.args.content, self.args.reason)
 
         try:
             with open(target_file, "a", encoding="utf-8") as f:

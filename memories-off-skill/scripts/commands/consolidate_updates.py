@@ -4,13 +4,7 @@ import re
 from pathlib import Path
 from datetime import datetime
 from utility.runtime import ScriptBase
-from utility.schema_define import MetadataParser
-
-# 新版更新块正则 (匹配 HTML 注释风格)
-NEW_BLOCK_RE = re.compile(
-    r"<!-- UPDATE_BLOCK_START: (.*?) \| reason: (.*?) -->\n(.*?)\n<!-- UPDATE_BLOCK_END -->",
-    re.DOTALL
-)
+from utility.schema_define import MetadataParser, UpdateBlockManager
 
 class ConsolidateUpdatesScript(ScriptBase):
     def __init__(self):
@@ -20,20 +14,19 @@ class ConsolidateUpdatesScript(ScriptBase):
             example='memocli consolidate-updates --path . --reason "定期整理任务内容"'
         )
 
-
     def consolidate_entity(self, file_path: Path):
         """解析并合并单个实体的所有更新块。"""
         with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
 
-        blocks = list(NEW_BLOCK_RE.finditer(content))
+        blocks = UpdateBlockManager.extract_blocks(content)
         if not blocks:
             return False
 
         # 1. 提取元数据和纯正文（不含更新块）
         metadata, full_body = MetadataParser.split_content(content)
         # 移除所有更新块标记，得到干净正文
-        clean_body = NEW_BLOCK_RE.sub("", full_body).strip()
+        clean_body = UpdateBlockManager.remove_blocks(full_body)
         
         # 2. 合并逻辑 (简单追加到正文末尾)
         new_body = clean_body

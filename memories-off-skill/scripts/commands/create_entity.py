@@ -2,7 +2,7 @@
 import sys
 from datetime import datetime
 from utility.runtime import ScriptBase
-from utility.schema_define import MetadataParser
+from utility.schema_define import MetadataParser, UpdateBlockManager
 
 class CreateEntityScript(ScriptBase):
     def __init__(self):
@@ -14,6 +14,8 @@ class CreateEntityScript(ScriptBase):
         self.parser.add_argument("-n", "--name", help="实体名称。")
         self.parser.add_argument("-e", "--entity", help="实体名称 (等价于 --name)。")
         self.parser.add_argument("-t", "--type", required=True, help="实体类型。")
+        self.parser.add_argument("-c", "--content", help="创建实体时的正文内容（将自动被包裹为更新块）。")
+        self.parser.add_argument("--aliases", help="实体的别名列表，逗号分隔。")
         self.parser.add_argument("--add-rel-out", action="append", help="追加出站关系: 修改当前新实体。支持多次使用。格式 'pred:T1,T2'。")
         self.parser.add_argument("--add-rel-in", action="append", help="追加入站关系: 修改来源实体指向当前实体。支持多次使用。格式 'pred:S1,S2'。")
 
@@ -66,7 +68,14 @@ class CreateEntityScript(ScriptBase):
             "date modified": now
         }
 
-        # 2. 处理 add-rel-out (List of Strings)
+        # 2. 处理别名
+        if self.args.aliases:
+            aliases = [a.strip() for a in self.args.aliases.split(",") if a.strip()]
+            for alias in aliases:
+                MetadataParser.add_alias(metadata, alias)
+            self.add_result(f"已添加别名: {self.args.aliases}")
+
+        # 3. 处理 add-rel-out (List of Strings)
         if self.args.add_rel_out:
             for rel_str in self.args.add_rel_out:
                 if ":" in rel_str:
@@ -78,9 +87,15 @@ class CreateEntityScript(ScriptBase):
                 else:
                     self.add_result(f"[!] 格式错误: {rel_str}")
 
-        # 3. 构造文件内容并写入
+        # 4. 构造文件内容并写入
         content = MetadataParser.serialize(metadata)
-        content += f"\n# {normalized_name}\n\n(在此处输入实体的详细描述...)\n"
+        content += f"\n# {normalized_name}\n"
+
+        if self.args.content:
+            update_block = UpdateBlockManager.create_block(self.args.content, self.args.reason)
+            content += update_block
+        else:
+            content += "\n(在此处输入实体的详细描述...)\n"
 
         try:
             ctx.entities_path.mkdir(parents=True, exist_ok=True)

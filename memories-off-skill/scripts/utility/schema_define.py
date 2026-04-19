@@ -2,7 +2,45 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List
+from datetime import datetime
 import subprocess
+
+class UpdateBlockManager:
+    """
+    负责实体末尾「缓冲更新块 (Update Blocks)」的生命周期管理：创建、提取与清理。
+    """
+    BLOCK_PATTERN = re.compile(
+        r"<!-- UPDATE_BLOCK_START: (.*?) \| reason: (.*?) -->\n(.*?)\n<!-- UPDATE_BLOCK_END -->",
+        re.DOTALL
+    )
+
+    @staticmethod
+    def create_block(content: str, reason: str) -> str:
+        """
+        生成一个标准化的、包含时间戳和操作理由的 HTML 注释包裹块。
+        内部会自动对内容中的 WikiLinks 进行标准化。
+        """
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        safe_content = MetadataParser.normalize_wikilinks(content.strip())
+        block = f"\n<!-- UPDATE_BLOCK_START: {now} | reason: {reason} -->\n"
+        block += f"{safe_content}\n"
+        block += "<!-- UPDATE_BLOCK_END -->\n"
+        return block
+
+    @staticmethod
+    def extract_blocks(content: str) -> List[re.Match]:
+        """
+        从完整文本中提取所有更新块，返回正则 Match 对象的列表。
+        Match.groups() = (timestamp, reason, block_content)
+        """
+        return list(UpdateBlockManager.BLOCK_PATTERN.finditer(content))
+
+    @staticmethod
+    def remove_blocks(content: str) -> str:
+        """
+        从完整文本中移除所有更新块并去首尾空白，通常用于获取「干净正文」。
+        """
+        return UpdateBlockManager.BLOCK_PATTERN.sub("", content).strip()
 
 @dataclass
 class LibraryContext:
