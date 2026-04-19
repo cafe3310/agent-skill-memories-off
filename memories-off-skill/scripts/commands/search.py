@@ -40,11 +40,10 @@ class SearchScript(ScriptBase):
         elif self.args.meta: scope = "meta"
         elif self.args.content: scope = "content"
 
-        # 针对名称搜索的特殊处理：标准化 pattern 以匹配文件名
+        # 针对名称搜索的特殊处理
         search_pattern = pattern
         if scope == "name":
-            search_pattern = MetadataParser.normalize_name(pattern)
-            self.add_result(f"正在以标准名称格式搜索: '{search_pattern}'")
+            self.add_result(f"正在匹配实体文件名 (Regex): '{search_pattern}'")
 
         safe_entities_dir = shlex.quote(str(entities_dir))
 
