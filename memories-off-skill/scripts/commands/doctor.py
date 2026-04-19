@@ -10,73 +10,90 @@ class DoctorScript(ScriptBase):
     def __init__(self):
         super().__init__(
             action_name="doctor",
-            description="诊断并修复知识库中的常见问题，特别是实体命名、WikiLink 规范和元数据格式的一致性。",
-            example='memocli doctor --path . --normalize-name --reason "自动修复全库命名不规范问题"'
+            description="诊断并修复知识库中的常见问题（规范化、孤立引用等）。若不加 --fix 参数，则仅列出问题（Dry-run）。",
+            example='memocli doctor --normalize-name --fix --reason "标准化命名"'
         )
-        self.parser.add_argument("--normalize-name", action="store_true", help="强制全库实体文件名、WikiLinks、关系和别名标准化。")
+        self.parser.add_argument("--normalize-name", action="store_true", help="检查并修复实体文件名、WikiLinks和关系目标的标准化问题。")
+        self.parser.add_argument("--audit", action="store_true", help="检查并修复孤立关系、损坏的 WikiLink 以及 Schema 冲突。")
+        self.parser.add_argument("--fix", action="store_true", help="执行修复模式。自动更正发现的问题。")
 
     def run(self):
         self.setup()
         
-        if self.args.normalize_name and self.args.reason == "none":
-            self.error("执行批量修复模式时必须提供理由 (--reason/-r)。")
+        if not (self.args.normalize_name or self.args.audit):
+            self.error("必须至少指定一个诊断规则（例如 --normalize-name 或 --audit）。")
+
+        if self.args.fix and self.args.reason == "none":
+            self.error("执行修复模式时必须提供理由 (--reason/-r)。")
 
         ctx = self.ctx
         if not ctx.entities_path.exists():
             self.error("实体目录不存在。")
 
         entity_files = list(ctx.entities_path.glob("*.md"))
-        
         issues = []
         fixed_count = 0
-        self.add_result(f"正在对 {len(entity_files)} 个实体进行诊断...")
+        
+        mode_str = "修复" if self.args.fix else "诊断"
+        self.add_result(f"正在对 {len(entity_files)} 个实体进行{mode_str}...")
 
         if self.args.normalize_name:
-            self._run_normalize_name_pass(entity_files, issues)
+            fixed_count += self._run_normalize_name_pass(entity_files, issues, self.args.fix)
+            # 如果重命名了文件，重新获取文件列表供下一个规则使用
+            entity_files = list(ctx.entities_path.glob("*.md"))
+
+        if self.args.audit:
+            fixed_count += self._run_audit_pass(entity_files, issues, self.args.fix)
 
         if not issues:
-            self.add_result("  [OK] 未发现需要修复的问题。")
+            self.add_result(f"  [OK] 未发现需要处理的问题。")
         else:
-            self.add_result(f"共发现/处理了 {len(issues)} 个问题点:")
+            self.add_result(f"共发现 {len(issues)} 个问题点:")
             for issue in issues[:50]:
                 self.add_result(f"  - {issue}")
             if len(issues) > 50:
                 self.add_result(f"  ... (还有 {len(issues) - 50} 个问题被省略)")
 
-        if self.args.normalize_name and issues:
+        if self.args.fix and fixed_count > 0:
             if ctx.is_git_repo():
                 commit_msg = f"fix(doctor): {self.args.reason}"
                 try:
                     ctx.run_git(["add", "entities/"])
                     ctx.run_git(["commit", "-m", commit_msg])
-                    self.add_result(f"\n[SUCCESS] 已应用修复并提交至 Git。")
+                    self.add_result(f"\n[SUCCESS] 已应用修复并提交 {fixed_count} 个文件的变更至 Git。")
                 except Exception as e:
                     self.add_result(f"\n[WARN] 修复已完成但 Git 提交失败: {e}")
             else:
-                self.add_result(f"\n[SUCCESS] 已应用修复 (非 Git 环境)。")
+                self.add_result(f"\n[SUCCESS] 已应用 {fixed_count} 个文件的修复 (非 Git 环境)。")
+        elif not self.args.fix and issues:
+            self.add_result("\n[INFO] 当前为诊断模式，未修改任何文件。如需修复，请添加 --fix 和 --reason 参数。")
 
         self.finalize(success=True)
 
-    def _run_normalize_name_pass(self, entity_files, issues):
+    def _run_normalize_name_pass(self, entity_files, issues, do_fix):
         """执行命名标准化检查和修复"""
-        # Step 1: 重命名不符合规范的文件名，并记录映射
         rename_map = {}
+        fixed_files = set()
+        
+        # Step 1: 检查文件名
         for file_path in entity_files:
             original_stem = file_path.stem
             normalized_stem = MetadataParser.normalize_name(original_stem)
             
             if original_stem != normalized_stem:
-                issues.append(f"[文件重命名] {original_stem}.md -> {normalized_stem}.md")
-                new_path = file_path.with_name(f"{normalized_stem}.md")
-                if not new_path.exists():
-                    os.rename(file_path, new_path)
+                issues.append(f"[文件命名] {original_stem}.md 需标准化为 {normalized_stem}.md")
                 rename_map[original_stem] = normalized_stem
+                if do_fix:
+                    new_path = file_path.with_name(f"{normalized_stem}.md")
+                    if not new_path.exists():
+                        os.rename(file_path, new_path)
+                    fixed_files.add(original_stem)
+
+        # 重新获取文件列表以便处理内容
+        current_entity_files = list(self.ctx.entities_path.glob("*.md")) if do_fix else entity_files
         
-        # 重新获取文件列表
-        entity_files = list(self.ctx.entities_path.glob("*.md"))
-        
-        # Step 2: 扫描并修复文件内容（元数据与正文）
-        for file_path in entity_files:
+        # Step 2: 扫描文件内容（元数据与正文）
+        for file_path in current_entity_files:
             try:
                 with open(file_path, "r", encoding="utf-8") as f:
                     content = f.read()
@@ -86,7 +103,7 @@ class DoctorScript(ScriptBase):
             metadata, body = MetadataParser.split_content(content)
             content_changed = False
             
-            # 1. 修复关系目标
+            # 1. 检查关系目标
             rel_keys = [k for k in metadata.keys() if k.startswith("relation as ")]
             for rk in rel_keys:
                 targets_raw = metadata[rk]
@@ -95,22 +112,26 @@ class DoctorScript(ScriptBase):
                 for t in targets:
                     norm_t = MetadataParser.normalize_name(t)
                     if norm_t != t:
-                        issues.append(f"[{file_path.name}] 关系目标标准化: {t} -> {norm_t}")
+                        issues.append(f"[{file_path.name}] 关系目标需标准化: {t} -> {norm_t}")
                         content_changed = True
                     normalized_targets.append(norm_t)
-                metadata[rk] = ", ".join(normalized_targets)
+                if do_fix:
+                    metadata[rk] = ", ".join(normalized_targets)
 
-            # 2. 修复别名 (首尾去空，但别名本身不强求全小写或连字符)
-            if "aliases" in metadata:
-                aliases_raw = metadata["aliases"]
+            # 2. 检查别名并处理重命名的回退记录
+            if do_fix and "aliases" in metadata or (not do_fix and "aliases" in metadata):
+                aliases_raw = metadata.get("aliases", "")
                 aliases = [a.strip() for a in aliases_raw.split(",") if a.strip()]
-                # 如果当前文件名被重命名过，且原始名字不在别名里，自动把原名字加入别名
+                
+                # 如果文件被重命名了，原名字应加入别名
                 original_stem = next((k for k, v in rename_map.items() if v == file_path.stem), None)
                 if original_stem and original_stem not in aliases:
-                    aliases.append(original_stem)
-                    issues.append(f"[{file_path.name}] 自动添加原名作为别名: {original_stem}")
-                    content_changed = True
+                    issues.append(f"[{file_path.name}] 需自动添加原名作为别名: {original_stem}")
+                    if do_fix:
+                        aliases.append(original_stem)
+                        content_changed = True
                 
+                # 去重
                 clean_aliases = []
                 for a in aliases:
                     if a not in clean_aliases:
@@ -118,19 +139,92 @@ class DoctorScript(ScriptBase):
                 
                 new_aliases_str = ", ".join(clean_aliases)
                 if new_aliases_str != aliases_raw:
-                    metadata["aliases"] = new_aliases_str
-                    content_changed = True
+                    if do_fix:
+                        metadata["aliases"] = new_aliases_str
+                        content_changed = True
 
-            # 3. 修复正文中的 WikiLinks
+            # 3. 检查正文中的 WikiLinks
             new_body = MetadataParser.normalize_wikilinks(body)
             if new_body != body:
-                issues.append(f"[{file_path.name}] 已标准化正文中的 WikiLinks")
+                issues.append(f"[{file_path.name}] 正文中的 WikiLinks 需标准化")
                 content_changed = True
 
-            if content_changed:
+            if content_changed and do_fix:
                 new_content = MetadataParser.serialize(metadata) + "\n" + new_body
                 with open(file_path, "w", encoding="utf-8") as f:
                     f.write(new_content)
+                fixed_files.add(file_path.stem)
+                
+        return len(fixed_files)
+
+    def _run_audit_pass(self, entity_files, issues, do_fix):
+        """执行知识库引用和格式健康审计"""
+        entity_names = {f.stem for f in entity_files}
+        fixed_files = set()
+        
+        wikilink_pattern = re.compile(r"\[\[(.*?)\]\]")
+        relation_pattern = re.compile(r"relation as (.*?):\s*(.*)")
+
+        for file_path in entity_files:
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    lines = f.readlines()
+            except Exception:
+                continue
+            
+            new_lines = []
+            file_changed = False
+            
+            for idx, line in enumerate(lines):
+                line_no = idx + 1
+                
+                # 1. 审计 Relation 引用
+                rel_match = relation_pattern.search(line)
+                if rel_match:
+                    predicate, targets = rel_match.groups()
+                    target_list = [t.strip() for t in targets.split(",")]
+                    valid_targets = []
+                    for t in target_list:
+                        # 关系目标通常已经被标准化过，直接检查文件是否存在
+                        if t not in entity_names:
+                            issues.append(f"[{file_path.name}:{line_no}] Orphan Relation 指向不存在的实体: {t}")
+                        else:
+                            valid_targets.append(t)
+                    
+                    if do_fix and len(valid_targets) != len(target_list):
+                        if not valid_targets:
+                            line = "" # 移除整行
+                        else:
+                            line = f"relation as {predicate}: {', '.join(valid_targets)}\n"
+                        file_changed = True
+
+                # 2. 审计 WikiLinks
+                links = wikilink_pattern.findall(line)
+                for link in links:
+                    # 处理 [[Entity|Alias]]
+                    link_name = link.split("|")[0].strip()
+                    # 检查时，使用标准化后的名字去找是否存在
+                    norm_link = MetadataParser.normalize_name(link_name)
+                    if norm_link not in entity_names:
+                        issues.append(f"[{file_path.name}:{line_no}] Broken Link 无效的 WikiLink: [[{link}]]")
+                        if do_fix and " (broken)" not in line:
+                            line = line.replace(f"[[{link}]]", f"[[{link}]] (broken)")
+                            file_changed = True
+
+                new_lines.append(line)
+
+            # 3. 审计 Entity Type (单一值校验)
+            for idx, line in enumerate(lines[:10]):
+                if "entity type:" in line and "," in line:
+                    issues.append(f"[{file_path.name}:{idx+1}] Schema Violation: entity type 包含多个值（应为唯一）")
+                    # 目前对 entity type 冲突只报不自动修，留待人工或专门工具
+
+            if do_fix and file_changed:
+                with open(file_path, "w", encoding="utf-8") as f:
+                    f.writelines(new_lines)
+                fixed_files.add(file_path.stem)
+                
+        return len(fixed_files)
 
 if __name__ == "__main__":
     DoctorScript().run()
