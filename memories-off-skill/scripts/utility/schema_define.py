@@ -18,11 +18,12 @@ class UpdateBlockManager:
     def create_block(content: str, reason: str, timestamp: str = None) -> str:
         """
         生成一个标准化的、包含时间戳和操作理由的 HTML 注释包裹块。
-        内部会自动对内容中的 WikiLinks 进行标准化。
+        内部会自动对内容中的 WikiLinks 进行标准化，并将所有子标题转为 H2。
         """
         if not timestamp:
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         safe_content = MetadataParser.normalize_wikilinks(content.strip())
+        safe_content = MetadataParser.normalize_headers(safe_content)
         block = f"\n<!-- UPDATE_BLOCK_START: {timestamp} | reason: {reason} -->\n"
         block += f"{safe_content}\n"
         block += f"<!-- UPDATE_BLOCK_END: {timestamp} -->\n"
@@ -262,6 +263,33 @@ class MetadataParser:
             
         # 匹配 [[...]]，排除跨行的复杂匹配
         return re.sub(r"\[\[(.*?)\]\]", repl, text)
+
+    @staticmethod
+    def normalize_headers(text: str) -> str:
+        """
+        将正文中的所有 Markdown 标题统一标准化为 H2 (##)。
+        排除代码块 (```) 内部的内容。
+        """
+        lines = text.split("\n")
+        new_lines = []
+        in_code_block = False
+        
+        for line in lines:
+            if line.strip().startswith("```"):
+                in_code_block = not in_code_block
+                new_lines.append(line)
+                continue
+                
+            if not in_code_block and line.startswith("#"):
+                match = re.match(r"^#+\s+(.*)", line)
+                if match:
+                    # 替换为 H2
+                    new_lines.append(f"## {match.group(1)}")
+                    continue
+                    
+            new_lines.append(line)
+            
+        return "\n".join(new_lines)
 
     @staticmethod
     def remove_relation(metadata: Dict[str, str], predicate: str, target: str) -> bool:

@@ -12,18 +12,19 @@ class DoctorScript(ScriptBase):
         super().__init__(
             action_name="doctor",
             description="诊断并修复知识库中的常见问题（规范化、孤立引用等）。若不加 --fix 参数，则仅列出问题（Dry-run）。",
-            example='memocli doctor --normalize-name --fix --reason "标准化命名"'
+            example='memocli doctor --rule-normalize-name --fix --reason "标准化命名"'
         )
-        self.parser.add_argument("--normalize-name", action="store_true", help="检查并修复实体文件名、WikiLinks和关系目标的标准化问题。")
-        self.parser.add_argument("--audit", action="store_true", help="检查并修复孤立关系、损坏的 WikiLink 以及 Schema 冲突。")
-        self.parser.add_argument("--fix-update-blocks", action="store_true", help="检查并修复老旧的缓冲更新块，交互式地补齐时间戳和理由。")
+        self.parser.add_argument("--rule-normalize-name", action="store_true", help="检查并修复实体文件名、WikiLinks和关系目标的标准化问题。")
+        self.parser.add_argument("--rule-normalize-headers", action="store_true", help="检查并统一正文中的 Markdown 标题为 H2。")
+        self.parser.add_argument("--rule-audit-links", action="store_true", help="检查并修复孤立关系、损坏的 WikiLink 以及 Schema 冲突。")
+        self.parser.add_argument("--rule-fix-update-blocks", action="store_true", help="检查并修复老旧的缓冲更新块，交互式地补齐时间戳和理由。")
         self.parser.add_argument("--fix", action="store_true", help="执行修复模式。自动更正发现的问题。")
 
     def run(self):
         self.setup()
         
-        if not (self.args.normalize_name or self.args.audit or self.args.fix_update_blocks):
-            self.error("必须至少指定一个诊断规则（例如 --normalize-name, --audit, 或 --fix-update-blocks）。")
+        if not (self.args.rule_normalize_name or self.args.rule_normalize_headers or self.args.rule_audit_links or self.args.rule_fix_update_blocks):
+            self.error("必须至少指定一个诊断规则（例如 --rule-normalize-name, --rule-normalize-headers, --rule-audit-links, 或 --rule-fix-update-blocks）。")
 
         if self.args.fix and self.args.reason == "none":
             self.error("执行修复模式时必须提供理由 (--reason/-r)。")
@@ -39,15 +40,18 @@ class DoctorScript(ScriptBase):
         mode_str = "修复" if self.args.fix else "诊断"
         self.add_result(f"正在对 {len(entity_files)} 个实体进行{mode_str}...")
 
-        if self.args.normalize_name:
+        if self.args.rule_normalize_name:
             fixed_count += self._run_normalize_name_pass(entity_files, issues, self.args.fix)
             # 如果重命名了文件，重新获取文件列表供下一个规则使用
             entity_files = list(ctx.entities_path.glob("*.md"))
 
-        if self.args.audit:
+        if self.args.rule_normalize_headers:
+            fixed_count += self._run_normalize_headers_pass(entity_files, issues, self.args.fix)
+
+        if self.args.rule_audit_links:
             fixed_count += self._run_audit_pass(entity_files, issues, self.args.fix)
 
-        if self.args.fix_update_blocks:
+        if self.args.rule_fix_update_blocks:
             fixed_count += self._run_fix_update_blocks_pass(entity_files, issues, self.args.fix)
 
         if not issues:
@@ -148,10 +152,10 @@ class DoctorScript(ScriptBase):
                         metadata["aliases"] = new_aliases_str
                         content_changed = True
 
-            # 3. 检查正文中的 WikiLinks
+            # 3. 修复正文中的 WikiLinks
             new_body = MetadataParser.normalize_wikilinks(body)
             if new_body != body:
-                issues.append(f"[{file_path.name}] 正文中的 WikiLinks 需标准化")
+                issues.append(f"[{file_path.name}] 已标准化正文中的 WikiLinks")
                 content_changed = True
 
             if content_changed and do_fix:
@@ -160,6 +164,43 @@ class DoctorScript(ScriptBase):
                     f.write(new_content)
                 fixed_files.add(file_path.stem)
                 
+        return len(fixed_files)
+
+    def _run_normalize_headers_pass(self, entity_files, issues, do_fix):
+        """执行正文标题层级的标准化检查和修复"""
+        fixed_files = set()
+        
+        for file_path in entity_files:
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+            except Exception:
+                continue
+                
+            metadata, body = MetadataParser.split_content(content)
+            
+            # 找到首行的 H1 (例如 `# 实体名`) 并保留，后续内容进行 normalize_headers
+            body_lines = body.splitlines()
+            h1_line = ""
+            rest_body = body
+            if body_lines and body_lines[0].startswith("# "):
+                h1_line = body_lines[0]
+                rest_body = "\n".join(body_lines[1:])
+
+            norm_rest_body = MetadataParser.normalize_headers(rest_body)
+            if norm_rest_body != rest_body:
+                issues.append(f"[{file_path.name}] 正文标题层级需标准化为 H2")
+                if do_fix:
+                    if h1_line:
+                        new_body = h1_line + "\n" + norm_rest_body
+                    else:
+                        new_body = norm_rest_body
+                    
+                    new_content = MetadataParser.serialize(metadata) + "\n" + new_body
+                    with open(file_path, "w", encoding="utf-8") as f:
+                        f.write(new_content)
+                    fixed_files.add(file_path.stem)
+                    
         return len(fixed_files)
 
     def _run_audit_pass(self, entity_files, issues, do_fix):
