@@ -10,21 +10,22 @@ class UpdateBlockManager:
     负责实体末尾「缓冲更新块 (Update Blocks)」的生命周期管理：创建、提取与清理。
     """
     BLOCK_PATTERN = re.compile(
-        r"<!-- UPDATE_BLOCK_START: (.*?) \| reason: (.*?) -->\n(.*?)\n<!-- UPDATE_BLOCK_END -->",
+        r"<!-- UPDATE_BLOCK_START: (.*?) \| reason: (.*?) -->\n(.*?)\n<!-- UPDATE_BLOCK_END(?:|: .*?) -->",
         re.DOTALL
     )
 
     @staticmethod
-    def create_block(content: str, reason: str) -> str:
+    def create_block(content: str, reason: str, timestamp: str = None) -> str:
         """
         生成一个标准化的、包含时间戳和操作理由的 HTML 注释包裹块。
         内部会自动对内容中的 WikiLinks 进行标准化。
         """
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if not timestamp:
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         safe_content = MetadataParser.normalize_wikilinks(content.strip())
-        block = f"\n<!-- UPDATE_BLOCK_START: {now} | reason: {reason} -->\n"
+        block = f"\n<!-- UPDATE_BLOCK_START: {timestamp} | reason: {reason} -->\n"
         block += f"{safe_content}\n"
-        block += "<!-- UPDATE_BLOCK_END -->\n"
+        block += f"<!-- UPDATE_BLOCK_END: {timestamp} -->\n"
         return block
 
     @staticmethod

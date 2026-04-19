@@ -3,8 +3,9 @@ import sys
 import re
 import os
 from pathlib import Path
+from datetime import datetime
 from utility.runtime import ScriptBase
-from utility.schema_define import MetadataParser
+from utility.schema_define import MetadataParser, UpdateBlockManager
 
 class DoctorScript(ScriptBase):
     def __init__(self):
@@ -15,13 +16,14 @@ class DoctorScript(ScriptBase):
         )
         self.parser.add_argument("--normalize-name", action="store_true", help="检查并修复实体文件名、WikiLinks和关系目标的标准化问题。")
         self.parser.add_argument("--audit", action="store_true", help="检查并修复孤立关系、损坏的 WikiLink 以及 Schema 冲突。")
+        self.parser.add_argument("--fix-update-blocks", action="store_true", help="检查并修复老旧的缓冲更新块，交互式地补齐时间戳和理由。")
         self.parser.add_argument("--fix", action="store_true", help="执行修复模式。自动更正发现的问题。")
 
     def run(self):
         self.setup()
         
-        if not (self.args.normalize_name or self.args.audit):
-            self.error("必须至少指定一个诊断规则（例如 --normalize-name 或 --audit）。")
+        if not (self.args.normalize_name or self.args.audit or self.args.fix_update_blocks):
+            self.error("必须至少指定一个诊断规则（例如 --normalize-name, --audit, 或 --fix-update-blocks）。")
 
         if self.args.fix and self.args.reason == "none":
             self.error("执行修复模式时必须提供理由 (--reason/-r)。")
@@ -44,6 +46,9 @@ class DoctorScript(ScriptBase):
 
         if self.args.audit:
             fixed_count += self._run_audit_pass(entity_files, issues, self.args.fix)
+
+        if self.args.fix_update_blocks:
+            fixed_count += self._run_fix_update_blocks_pass(entity_files, issues, self.args.fix)
 
         if not issues:
             self.add_result(f"  [OK] 未发现需要处理的问题。")
@@ -222,6 +227,110 @@ class DoctorScript(ScriptBase):
             if do_fix and file_changed:
                 with open(file_path, "w", encoding="utf-8") as f:
                     f.writelines(new_lines)
+                fixed_files.add(file_path.stem)
+                
+        return len(fixed_files)
+
+    def _run_fix_update_blocks_pass(self, entity_files, issues, do_fix):
+        """扫描并修复、补齐含有缺陷或使用旧格式的缓冲更新块"""
+        fixed_files = set()
+        
+        loose_pattern = re.compile(
+            r"<!-- UPDATE_BLOCK_START(?:|:\s*(.*?))\s*\|\s*reason:\s*(.*?)\s*-->\n(.*?)\n<!-- UPDATE_BLOCK_END(?:|:\s*(.*?))\s*-->",
+            re.DOTALL
+        )
+        
+        legacy_pattern = re.compile(
+            r"---\s*\[UPDATE BLOCK\]\s*---\n(.*?)\n---\s*\[END OF UPDATE BLOCK\]\s*---",
+            re.DOTALL
+        )
+        
+        for file_path in entity_files:
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+            except Exception:
+                continue
+
+            file_mtime = file_path.stat().st_mtime
+            fallback_time_obj = datetime.fromtimestamp(file_mtime)
+            
+            content_changed = False
+            new_content = content
+            
+            # 1. 处理极旧的 Legacy 格式
+            legacy_matches = list(legacy_pattern.finditer(new_content))
+            for i, match in enumerate(legacy_matches):
+                issues.append(f"[{file_path.name}] 发现极其古老的更新块 (Legacy Format)")
+                if do_fix:
+                    block_content = match.group(1)
+                    # 每遇到一个缺少时间的块，时间 +1s
+                    block_time = (fallback_time_obj + __import__("datetime").timedelta(seconds=i)).strftime("%Y-%m-%d %H:%M:%S")
+                    reason = "迁移补充"
+                    
+                    new_block = UpdateBlockManager.create_block(block_content, reason, block_time)
+                    print(f"\n[{file_path.name}] 拟修复极其古老的更新块:")
+                    print("--- 原内容 ---")
+                    print(match.group(0).strip())
+                    print("--- 修复后 ---")
+                    print(new_block.strip())
+                    
+                    ans = input("确认修复此块? (y/N): ")
+                    if ans.lower() == 'y':
+                        new_content = new_content.replace(match.group(0), new_block)
+                        content_changed = True
+                        
+            # 2. 处理带有标准 HTML 注释但格式可能存在缺陷的格式
+            loose_matches = list(loose_pattern.finditer(new_content))
+            for i, match in enumerate(loose_matches):
+                t_start = match.group(1)
+                reason = match.group(2)
+                block_content = match.group(3)
+                t_end = match.group(4)
+                
+                needs_fix = False
+                issue_msgs = []
+                
+                if not t_start:
+                    issue_msgs.append("START 缺少时间戳")
+                    needs_fix = True
+                if not t_end:
+                    issue_msgs.append("END 缺少时间戳")
+                    needs_fix = True
+                if t_start and t_end and t_start != t_end:
+                    issue_msgs.append("START 和 END 时间戳不一致")
+                    needs_fix = True
+                if not reason or reason.strip() == "":
+                    issue_msgs.append("缺少 reason")
+                    needs_fix = True
+                    
+                if needs_fix:
+                    issues.append(f"[{file_path.name}] 更新块格式不合规: {', '.join(issue_msgs)}")
+                    if do_fix:
+                        # 确定时间戳
+                        if t_start and "缺少时间戳" not in issue_msgs[0]:
+                            final_time = t_start
+                        else:
+                            final_time = (fallback_time_obj + __import__("datetime").timedelta(seconds=i)).strftime("%Y-%m-%d %H:%M:%S")
+                            
+                        # 确定原因
+                        final_reason = reason if reason and reason.strip() else "迁移补充"
+                        
+                        new_block = UpdateBlockManager.create_block(block_content, final_reason, final_time)
+                        print(f"\n[{file_path.name}] 拟修复更新块缺陷 ({', '.join(issue_msgs)}):")
+                        print("--- 原内容 ---")
+                        print(match.group(0).strip())
+                        print("--- 修复后 ---")
+                        print(new_block.strip())
+                        
+                        ans = input("确认修复此块? (y/N): ")
+                        if ans.lower() == 'y':
+                            new_content = new_content.replace(match.group(0), new_block)
+                            content_changed = True
+
+            if content_changed and do_fix:
+                with open(file_path, "w", encoding="utf-8") as f:
+                    f.write(new_content)
                 fixed_files.add(file_path.stem)
                 
         return len(fixed_files)
