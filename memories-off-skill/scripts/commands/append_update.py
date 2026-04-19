@@ -53,7 +53,7 @@ class AppendUpdateScript(ScriptBase):
         # 1. 构造并追加更新块
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         update_block = f"\n<!-- UPDATE_BLOCK_START: {now} | reason: {self.args.reason} -->\n"
-        update_block += self.args.content.strip()
+        update_block += MetadataParser.normalize_wikilinks(self.args.content.strip())
         update_block += f"\n<!-- UPDATE_BLOCK_END -->\n"
 
         try:

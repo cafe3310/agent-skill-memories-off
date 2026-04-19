@@ -156,6 +156,50 @@ class MetadataParser:
         return True
 
     @staticmethod
+    def add_alias(metadata: Dict[str, str], alias: str) -> bool:
+        """
+        向元数据中安全地添加一个别名。别名本身不被转为 slug，仅做去重和首尾去空格处理。
+        """
+        alias = alias.strip()
+        if not alias:
+            return False
+            
+        existing_val = metadata.get("aliases", "").strip()
+        if not existing_val:
+            metadata["aliases"] = alias
+            return True
+            
+        aliases = [a.strip() for a in existing_val.split(",") if a.strip()]
+        if alias in aliases:
+            return False # 已存在
+            
+        aliases.append(alias)
+        metadata["aliases"] = ", ".join(aliases)
+        return True
+
+    @staticmethod
+    def normalize_wikilinks(text: str) -> str:
+        """
+        将正文中的 WikiLinks 自动标准化。
+        [[Raw Name]] -> [[Normalized-Name|Raw Name]]
+        [[Raw Name|Display]] -> [[Normalized-Name|Display]]
+        若 Normalized-Name 等同于 Raw Name，则保持 [[Raw Name]] 即可。
+        """
+        def repl(match):
+            inner = match.group(1)
+            parts = inner.split("|", 1)
+            target = parts[0].strip()
+            display = parts[1].strip() if len(parts) > 1 else target
+            
+            norm_target = MetadataParser.normalize_name(target)
+            if norm_target == display:
+                return f"[[{norm_target}]]"
+            return f"[[{norm_target}|{display}]]"
+            
+        # 匹配 [[...]]，排除跨行的复杂匹配
+        return re.sub(r"\[\[(.*?)\]\]", repl, text)
+
+    @staticmethod
     def remove_relation(metadata: Dict[str, str], predicate: str, target: str) -> bool:
         """
         从元数据中移除一个特定的关系目标。
