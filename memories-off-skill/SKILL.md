@@ -15,9 +15,9 @@ license: Apache-2.0
 
 ## 2. 核心能力 (Core Capabilities)
 
-- **库观察 (Observation)**: 了解知识库的全局状态、统计信息和元数据手册（`meta.md`）。
-- **实体检索 (Retrieval)**: 通过名称、元数据（Frontmatter）或正文内容（Full-text）查找特定实体。
-- **实体阅读 (Reading)**: 读取实体的全文、目录（TOC）或特定章节。
+- **库观察 (Observation)**: 通过 `explore` 工具了解知识库全景、手册（`meta.md`）及全局统计信息。
+- **实体检索 (Retrieval)**: 通过 `search` 工具，通过名称、别名（Aliases）、元数据（类型、关系）或正文内容查找实体。
+- **实体阅读 (Reading)**: 读取实体的全文、特定章节或关联关系。
 - **内容编辑 (Editing)**: 在保持文档结构完整的情况下，精确追加或替换实体中的章节。
 - **实体管理 (Management)**: 创建、重命名、合并和安全删除（移动至回收站）实体文件。
 - **关系管理 (Relations)**: 在实体之间建立和删除显式的语义关系。
@@ -49,7 +49,7 @@ license: Apache-2.0
 - **提示一致性**：通过 `prog` 参数适配，所有报错和用法提示均显示为 `memocli <subcommand>`，不再暴露底层的 `.py` 文件名。
 
 ### 3.3 协议规范 (memocli Protocol)
-为了保持工具链的可扩展性，所有位于 `scripts/` 下的业务脚本均遵循以下协议：
+为了保持工具链的可扩展性，所有 command 均遵循以下协议：
 - `--memo-cli-info`：返回 `Description`（一句话说明）和 `Example`（调用示例）。
 - `--memo-cli-call`：标识位。当存在时，脚本应调整其 `argparse` 的 `prog` 名称和用法示例以匹配 `memocli` 格式。
 
@@ -76,10 +76,10 @@ license: Apache-2.0
 要对本 Skill 控制的知识库进行任何操作，你都应该优先了解以下可用的工具规格文档，并根据他们的建议执行任务。
 即使有一些任务看起来用你自带的工具更简单，也不要偷懒，必须优先使用正确的下列工具 - 尤其是「编辑工具」。
 
-- [观察工具规格](./操作定义/观察工具规格.md): stats, load manual 等。
-- [检索工具规格](./操作定义/检索工具规格.md): search, find, load entities 等。
-- [编辑工具规格](./操作定义/编辑工具规格.md): add/replace section, add content, edit content 等。
-- [管理工具规格](./操作定义/管理工具规格.md): create, rename, merge, trash, relation 等。
+- [观察工具规格](./操作定义/观察工具规格.md): explore, doctor 等。
+- [检索工具规格](./操作定义/检索工具规格.md): search, get-relations 等。
+- [编辑工具规格](./操作定义/编辑工具规格.md): append-update, consolidate-updates 等。
+- [管理工具规格](./操作定义/管理工具规格.md): create-entity, rename, merge-entities, manage-relations 等。
 
 ### 3.5 示例资源 (Example Resources)
 - [模板知识库 (Template Library)](./assets/template-library/): 提供符合全套规范的目录结构、`meta.md` 手册及各种实体类型的 Markdown 示例。Agent 应参考此结构进行库初始化或内容格式化。
@@ -87,10 +87,11 @@ license: Apache-2.0
 
 ## 5. 约束与原则 (Constraints & Principles)
 
-- 严禁在不了解 `memocli` 可用子命令的情况下直接读取库内文档或执行复杂任务，新环境或新任务中，应首先运行 `memocli --help`。
-- **模糊检索优先 (Content-Grep First)**: 了解已有信息时，必须优先使用 `memocli search` 配合关键词或正则表达式进行全局或局部检索。当只需要实体列表时，应使用 `--names-only` 以节省上下文 Token。
-- **缓冲编辑优先**: 在编辑已有实体内容时，严禁使用 Agent 自带的行定位编辑工具、也尤其禁止使用整体文件 Write。必须优先通过 `appendUpdateBlock` (对应 `memocli append_update`) 以追加更新块的形式进行非破坏性修改。
-- **优先用 Plain Text**: 实体正文应当避免使用格式。严禁使用 Markdown 加粗 (`**`)、斜体 (`*`) 等修饰性格式，也严禁使用 backticks 等代码块格式。仅允许使用 Heading (#，而且仅允许一级 Heading)、无序列表 (-) 和 WikiLinks ([[ ]]) 来组织内容。
+- **开眼优先 (Explore First)**: 在任何新环境或新任务开始前，**必须首先运行 `memocli explore`**。该命令返回全量 XML 报告，涵盖了手册、架构实体预览、全量类型分布及可用工具清单，是建立上下文的权威来源。
+- **模糊检索优先 (Content-Grep First)**: 了解细节信息时，应使用 `memocli search`。它现在支持按类型（`--type`）和关系（`--rel`）进行正则过滤，并支持搜索别名。
+- **缓冲编辑优先**: 在编辑已有实体内容时，严禁使用 Agent 自带的行定位编辑工具、也尤其禁止使用整体文件 Write。必须优先通过 `memocli append-update` 以追加更新块的形式进行非破坏性修改。
+- **标题层级规范**: 实体正文必须遵循严格的标题层级：文件顶部第一行固定为 H1 (`# 实体名`)，正文内部所有的业务章节标题必须统一标准化为 H2 (`## 章节名`)。禁止使用 H3 及更深层级。
+- **优先用 Plain Text**: 实体正文应当简洁。避免使用 Markdown 加粗 (`**`)、斜体 (`*`) 等修饰性格式。允许使用 H2 标题、无序列表 (-) 和 WikiLinks ([[ ]])。
 - **本地优先 (Local-First)**: 所有操作均基于本地文件系统。
 - **XML 报告 (XML Reporting)**: 所有工具均返回结构化的 XML 报告，便于 Agent 解析。
 - **强制审计 (Audit)**: 所有修改操作必须提供 `reason` 以 Git 记录。
