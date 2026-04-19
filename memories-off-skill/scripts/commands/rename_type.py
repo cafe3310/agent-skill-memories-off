@@ -53,21 +53,37 @@ class RenameTypeScript(ScriptBase):
             except Exception as e:
                 self.add_result(f"[!] 处理文件 {file.name} 时出错: {e}")
 
-        # 2. 更新 meta.md 中的定义
+        # 2. 更新 meta.md 中的定义并检查残留
         if ctx.meta_path.exists():
             try:
                 with open(ctx.meta_path, "r", encoding="utf-8") as f:
                     meta_content = f.read()
                 
+                # 安全替换：仅替换标准列表定义
                 new_meta_content = meta_content.replace(f"- {old_type}", f"- {new_type}")
                 if new_meta_content != meta_content:
                     with open(ctx.meta_path, "w", encoding="utf-8") as f:
                         f.write(new_meta_content)
                     if ctx.is_git_repo():
                         ctx.run_git(["add", str(ctx.meta_path)])
-                    self.add_result("已更新 meta.md 中的类型定义。")
+                    self.add_result("已更新 meta.md 中标准的类型定义 (- 类型名)。")
+                
+                # 检查是否还有残留匹配
+                remaining_matches = []
+                lines = new_meta_content.splitlines()
+                for i, line in enumerate(lines):
+                    if old_type in line:
+                        remaining_matches.append((i+1, line.strip()))
+                
+                if remaining_matches:
+                    self.add_result(f"\n[!] 提示: 在 meta.md 中发现了 [{old_type}] 的其他匹配项。如果它们是相关说明文本，Agent 需要使用相关工具手动修改:")
+                    for line_num, line_text in remaining_matches[:10]:
+                        self.add_result(f"    第 {line_num} 行: {line_text}")
+                    if len(remaining_matches) > 10:
+                        self.add_result(f"    ... (还有 {len(remaining_matches) - 10} 项匹配)")
+
             except Exception as e:
-                self.add_result(f"[!] 更新 meta.md 失败: {e}")
+                self.add_result(f"[!] 更新/检查 meta.md 失败: {e}")
 
         if not affected_entities:
             self.add_result("未发现属于该类型的实体。")
