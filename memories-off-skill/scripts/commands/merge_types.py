@@ -2,7 +2,7 @@
 import sys
 from pathlib import Path
 from datetime import datetime
-from schema_define import ScriptBase, MetadataParser
+from utility.schema_define import ScriptBase, MetadataParser
 
 class MergeTypesScript(ScriptBase):
     def __init__(self):

@@ -3,7 +3,7 @@ import sys
 import re
 from pathlib import Path
 from datetime import datetime
-from schema_define import ScriptBase, MetadataParser
+from utility.schema_define import ScriptBase, MetadataParser
 
 class MigrationNamingV2Script(ScriptBase):
     def __init__(self):

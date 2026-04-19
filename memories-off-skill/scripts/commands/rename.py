@@ -2,7 +2,7 @@
 import sys
 import re
 from pathlib import Path
-from schema_define import ScriptBase, MetadataParser
+from utility.schema_define import ScriptBase, MetadataParser
 from datetime import datetime
 
 class RenameScript(ScriptBase):

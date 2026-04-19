@@ -3,7 +3,7 @@ import sys
 import re
 from pathlib import Path
 from datetime import datetime
-from schema_define import ScriptBase, MetadataParser
+from utility.schema_define import ScriptBase, MetadataParser
 
 # 新版更新块正则 (匹配 HTML 注释风格)
 NEW_BLOCK_RE = re.compile(

@@ -3,7 +3,7 @@ import sys
 import os
 from pathlib import Path
 from collections import Counter
-from schema_define import ScriptBase, MetadataParser
+from utility.schema_define import ScriptBase, MetadataParser
 
 class InspectSchemaScript(ScriptBase):
     def __init__(self):

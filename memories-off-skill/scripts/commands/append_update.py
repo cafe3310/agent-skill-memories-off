@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import sys
 from datetime import datetime
-from schema_define import ScriptBase, MetadataParser
+from utility.schema_define import ScriptBase, MetadataParser
 
 class AppendUpdateScript(ScriptBase):
     def __init__(self):

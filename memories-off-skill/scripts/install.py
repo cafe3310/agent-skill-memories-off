@@ -39,11 +39,13 @@ def create_memocli():
     # 2. 自动获取子命令列表及其描述
     subcommands_info = []
     valid_subcommands = []
-    py_files = sorted(glob.glob(os.path.join(script_dir, "*.py")))
+    # 扫描 commands 目录下的所有子命令
+    commands_dir = os.path.join(script_dir, "commands")
+    py_files = sorted(glob.glob(os.path.join(commands_dir, "*.py")))
     
     for py_file in py_files:
         name = os.path.splitext(os.path.basename(py_file))[0]
-        if name in ["install", "schema_define"] or name.startswith("_"):
+        if name.startswith("_"):
             continue
             
         # 优先使用中划线展示
@@ -51,11 +53,15 @@ def create_memocli():
         valid_subcommands.append(display_name)
             
         try:
-            # 运行脚本获取描述和示例
+            # 运行脚本获取描述和示例，设置 PYTHONPATH 以便脚本可以找到 utility.schema_define
+            env = os.environ.copy()
+            env["PYTHONPATH"] = script_dir + os.pathsep + env.get("PYTHONPATH", "")
+            
             proc = subprocess.Popen(
                 [python_cmd, py_file, "--memo-cli-info"],
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
+                stderr=subprocess.PIPE,
+                env=env
             )
             stdout, stderr = proc.communicate()
             
@@ -119,6 +125,9 @@ SCRIPTS_DIR="{script_dir}"
 SKILL_MD="{skill_md_path}"
 VALID_SUBS="{subcommands_joined}"
 
+# 设置 PYTHONPATH 以便子命令可以找到 utility 模块
+export PYTHONPATH="$SCRIPTS_DIR:$PYTHONPATH"
+
 # --- 0. 环境检查: 寻找 Python 3 ---
 PYTHON_CMD=""
 for cmd in python3 python3.11 python3.10 python3.9 python3.8 python3.7 python; do
@@ -164,7 +173,8 @@ shift # 移除 subcommand 准备处理 args
 RAW_ACTION=$ACTION
 ACTION=$(echo "$RAW_ACTION" | tr '-' '_')
 
-SCRIPT_PATH="$SCRIPTS_DIR/$ACTION.py"
+# 子命令现在存放在 commands 目录下
+SCRIPT_PATH="$SCRIPTS_DIR/commands/$ACTION.py"
 
 if [ ! -f "$SCRIPT_PATH" ]; then
     echo "[错误] 子命令 '$RAW_ACTION' 不存在。"
