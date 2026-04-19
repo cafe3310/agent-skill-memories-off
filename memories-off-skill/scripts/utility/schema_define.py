@@ -217,6 +217,31 @@ class MetadataParser:
         return True
 
     @staticmethod
+    def get_aliases(metadata: Dict[str, str]) -> List[str]:
+        """
+        获取解析后的别名列表（已去空）。
+        """
+        aliases_raw = metadata.get("aliases", "").strip()
+        if not aliases_raw:
+            return []
+        return [a.strip() for a in aliases_raw.split(",") if a.strip()]
+
+    @staticmethod
+    def get_all_relations(metadata: Dict[str, str]) -> Dict[str, List[str]]:
+        """
+        获取所有的关系映射。
+        返回字典: { predicate: [target1, target2, ...] }
+        """
+        relations = {}
+        for key, val in metadata.items():
+            if key.startswith("relation as "):
+                predicate = key.replace("relation as ", "").strip()
+                targets = [t.strip() for t in val.split(",") if t.strip()]
+                if targets:
+                    relations[predicate] = targets
+        return relations
+
+    @staticmethod
     def normalize_wikilinks(text: str) -> str:
         """
         将正文中的 WikiLinks 自动标准化。
