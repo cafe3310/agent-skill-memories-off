@@ -94,6 +94,8 @@ cafe3310 家两只超可爱三花猫里的姐姐。
 
 - **探索**: 先看下我的知识库里现在都有什么：`memocli explore`。
 - **检索**: 搜索关于‘理财’的笔记：`memocli search "理财" --content`。
-- **追加**: 把刚才关于五一出行的讨论记录下来：`memocli append-update --entity "五一计划" --content "内容..." --reason "讨论补充"`。
+- **追加 (推荐 STDIN 模式)**: 
+  - 为了避开复杂的 Shell 转义（引号、多行等），推荐让 Agent 使用管道传输内容：
+  - `echo "## 补充内容\n- 关键点 A\n- 关键点 B" | memocli append-update --entity "五一计划" --content-stdin --reason "讨论补充"`
 - **治理**: 审计并自动修复库里的标题层级：`memocli doctor --rule-normalize-headers --fix --reason "标准化层级"`。
 - **审计**: 提交手动修改：`memocli commit --reason "更新了人物关系定义"`。

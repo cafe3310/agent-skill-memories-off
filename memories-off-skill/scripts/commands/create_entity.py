@@ -15,6 +15,7 @@ class CreateEntityScript(ScriptBase):
         self.parser.add_argument("-e", "--entity", help="实体名称 (等价于 --name)。")
         self.parser.add_argument("-t", "--type", required=True, help="实体类型。")
         self.parser.add_argument("-c", "--content", help="创建实体时的正文内容（将自动被包裹为更新块）。")
+        self.parser.add_argument("--content-stdin", action="store_true", help="从标准输入 (STDIN) 读取初始内容。与 --content 互斥。")
         self.parser.add_argument("--aliases", help="实体的别名列表，逗号分隔。")
         self.parser.add_argument("--add-rel-out", action="append", help="追加出站关系: 修改当前新实体。支持多次使用。格式 'pred:T1,T2'。")
         self.parser.add_argument("--add-rel-in", action="append", help="追加入站关系: 修改来源实体指向当前实体。支持多次使用。格式 'pred:S1,S2'。")
@@ -48,6 +49,19 @@ class CreateEntityScript(ScriptBase):
         
         if self.args.reason == "none":
             self.error("必须提供创建实体的理由 (--reason/-r)。")
+
+        # 互斥检查与内容获取
+        if self.args.content and self.args.content_stdin:
+            self.error("参数冲突：不能同时使用 --content 和 --content-stdin。")
+            
+        initial_content = ""
+        if self.args.content_stdin:
+            try:
+                initial_content = sys.stdin.read()
+            except Exception as e:
+                self.error(f"从 STDIN 读取内容失败: {e}")
+        elif self.args.content:
+            initial_content = self.args.content
 
         ctx = self.ctx
         raw_name = self.args.entity if self.args.entity else self.args.name
@@ -91,8 +105,8 @@ class CreateEntityScript(ScriptBase):
         content = MetadataParser.serialize(metadata)
         content += f"\n# {normalized_name}\n"
 
-        if self.args.content:
-            update_block = UpdateBlockManager.create_block(self.args.content, self.args.reason)
+        if initial_content.strip():
+            update_block = UpdateBlockManager.create_block(initial_content, self.args.reason)
             content += update_block
         else:
             content += "\n(在此处输入实体的详细描述...)\n"

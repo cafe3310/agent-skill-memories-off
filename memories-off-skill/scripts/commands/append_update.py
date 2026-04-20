@@ -12,7 +12,8 @@ class AppendUpdateScript(ScriptBase):
             example='memocli append-update --entity "实体名称" --content "在此输入追加内容" --add-rel-out "关系谓词:目标1" --reason "理由"'
         )
         self.parser.add_argument("-e", "--entity", required=True, help="实体名称。")
-        self.parser.add_argument("-c", "--content", required=True, help="追加的内容。")
+        self.parser.add_argument("-c", "--content", help="追加的内容（字符串形式）。")
+        self.parser.add_argument("--content-stdin", action="store_true", help="从标准输入 (STDIN) 读取追加内容。与 --content 互斥。")
         self.parser.add_argument("--add-rel-out", action="append", help="追加出站关系: 修改当前实体。支持多次使用。格式 'pred:T1,T2'。")
         self.parser.add_argument("--add-rel-in", action="append", help="追加入站关系: 修改来源实体指向当前实体支持多次使用。格式 'pred:S1,S2'。")
 
@@ -42,6 +43,22 @@ class AppendUpdateScript(ScriptBase):
         if self.args.reason == "none":
             self.error("必须提供执行此操作的理由 (--reason/-r)。")
 
+        # 互斥检查与内容获取
+        if self.args.content and self.args.content_stdin:
+            self.error("参数冲突：不能同时使用 --content 和 --content-stdin。")
+            
+        update_content = ""
+        if self.args.content_stdin:
+            try:
+                update_content = sys.stdin.read()
+            except Exception as e:
+                self.error(f"从 STDIN 读取内容失败: {e}")
+        elif self.args.content:
+            update_content = self.args.content
+
+        if not update_content.strip() and not self.args.add_rel_out and not self.args.add_rel_in:
+            self.error("未提供任何有效的更新内容或关系变更。请提供 --content, --content-stdin 或关系参数。")
+
         ctx = self.ctx
         raw_name = self.args.entity
         normalized_name = MetadataParser.normalize_name(raw_name)
@@ -52,7 +69,7 @@ class AppendUpdateScript(ScriptBase):
 
         # 1. 构造并追加更新块
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        update_block = UpdateBlockManager.create_block(self.args.content, self.args.reason)
+        update_block = UpdateBlockManager.create_block(update_content, self.args.reason)
 
         try:
             with open(target_file, "a", encoding="utf-8") as f:
