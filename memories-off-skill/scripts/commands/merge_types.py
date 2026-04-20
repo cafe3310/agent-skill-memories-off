@@ -10,6 +10,7 @@ class MergeTypesScript(ScriptBase):
         super().__init__(
             action_name="merge_types",
             description="全库范围内将一个或多个实体类型合并为目标类型。",
+            group_name="结构化编辑 (Structured Editing)",
             example="memocli merge-types --path . --sources 源类型1,源类型2 --target 目标类型 --reason \"原因\""
         )
         self.parser.add_argument("-s", "--sources", required=True, help="源类型名称列表（逗号分隔）。")

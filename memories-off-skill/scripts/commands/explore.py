@@ -17,6 +17,7 @@ class ExploreScript(ScriptBase):
         super().__init__(
             action_name="explore",
             description="知识库全景探索工具。获取核心指南、关键实体、全局分类统计与工具帮助，适合在任务初期快速建立上下文。",
+            group_name="核心探索 (Core Exploration)",
             example="memocli explore --path . [--full]"
         )
         self.parser.add_argument("--full", action="store_true", help="输出完整内容，不截断任何超过默认限制的信息。")

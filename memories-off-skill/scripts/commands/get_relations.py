@@ -10,6 +10,7 @@ class GetRelationsScript(ScriptBase):
         super().__init__(
             action_name="get_relations",
             description="分析实体的关联网络，列出所有指向和被指向的关系。",
+            group_name="检索与加载 (Search & Loading)",
             example="memocli get-relations --path . --entity 人物-cafe3310"
         )
         self.parser.add_argument("-e", "--entity", required=True, help="要查询的实体名称（不含 .md）。")

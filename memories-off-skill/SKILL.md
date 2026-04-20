@@ -77,9 +77,9 @@ license: Apache-2.0
 即使有一些任务看起来用你自带的工具更简单，也不要偷懒，必须优先使用正确的下列工具 - 尤其是「编辑工具」。
 
 - [观察工具规格](./操作定义/观察工具规格.md): explore, doctor 等。
-- [检索工具规格](./操作定义/检索工具规格.md): search, get-relations 等。
-- [编辑工具规格](./操作定义/编辑工具规格.md): append-update, consolidate-updates 等。
-- [管理工具规格](./操作定义/管理工具规格.md): create-entity, rename, merge-entities, manage-relations 等。
+- **检索工具规格**([./操作定义/检索工具规格.md]): search-entities, get-relations, load-entities 等。
+- **编辑工具规格**([./操作定义/编辑工具规格.md]): append-update, squash-updates 等。
+- **管理工具规格**([./操作定义/管理工具规格.md]): create-entity, rename-entity, merge-entities, merge-types, manage-relations 等。
 
 ### 3.5 示例资源 (Example Resources)
 - [模板知识库 (Template Library)](./assets/template-library/): 提供符合全套规范的目录结构、`meta.md` 手册及各种实体类型的 Markdown 示例。Agent 应参考此结构进行库初始化或内容格式化。
@@ -88,7 +88,7 @@ license: Apache-2.0
 ## 5. 约束与原则 (Constraints & Principles)
 
 - **开眼优先 (Explore First)**: 在任何新环境或新任务开始前，**必须首先运行 `memocli explore`**。该命令返回全量 XML 报告，涵盖了手册、架构实体预览、全量类型分布及可用工具清单，是建立上下文的权威来源。
-- **模糊检索优先 (Content-Grep First)**: 了解细节信息时，应使用 `memocli search`。它现在支持按类型（`--type`）和关系（`--rel`）进行正则过滤，并支持搜索别名。
+- **模糊检索优先 (Content-Grep First)**: 了解细节信息时，应使用 `memocli search-entities`。它现在支持按类型（`--type`）和关系（`--rel`）进行正则过滤，并支持搜索别名。
 - **缓冲编辑优先**: 在编辑已有实体内容时，严禁使用 Agent 自带的行定位编辑工具、也尤其禁止使用整体文件 Write。必须优先通过 `memocli append-update` 以追加更新块的形式进行非破坏性修改。
 - **标题层级规范**: 实体正文必须遵循严格的标题层级：文件顶部第一行固定为 H1 (`# 实体名`)，正文内部所有的业务章节标题必须统一标准化为 H2 (`## 章节名`)。禁止使用 H3 及更深层级。
 - **优先用 Plain Text**: 实体正文应当简洁。避免使用 Markdown 加粗 (`**`)、斜体 (`*`) 等修饰性格式。允许使用 H2 标题、无序列表 (-) 和 WikiLinks ([[ ]])。

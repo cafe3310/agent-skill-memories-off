@@ -7,9 +7,10 @@ from utility.schema_define import MetadataParser
 class LoadScript(ScriptBase):
     def __init__(self):
         super().__init__(
-            action_name="load",
+            action_name="load_entities",
             description="精确读取一系列实体的全文内容（含 YAML Frontmatter）。",
-            example='memocli load --names "实体1,实体2"'
+            group_name="检索与加载 (Search & Loading)",
+            example='memocli load-entities --names "实体1,实体2"'
         )
         self.parser.add_argument("-n", "--names", required=True, help="要加载的实体名称列表，以逗号分隔。")
 

@@ -9,9 +9,10 @@ from utility.schema_define import MetadataParser
 class SearchScript(ScriptBase):
     def __init__(self):
         super().__init__(
-            action_name="search",
+            action_name="search_entities",
             description="在知识库中通过模式（正则表达式）检索实体。支持精准过滤（按类型、关系）和包含别名的全方位搜索。",
-            example='memocli search "模式串" --name --type "人物" --rel "friend:张三"'
+            group_name="检索与加载 (Search & Loading)",
+            example='memocli search-entities "模式串" --name --type "人物" --rel "friend:张三"'
         )
         self.parser.add_argument("pattern", nargs="?", default="", help="要搜索的模式串（支持正则表达式）。如果仅过滤列表可为空。")
         

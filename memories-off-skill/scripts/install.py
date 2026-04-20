@@ -37,8 +37,9 @@ def create_memocli():
             python_cmd = found_python3
     
     # 2. 自动获取子命令列表及其描述
-    subcommands_info = []
     valid_subcommands = []
+    groups = {}
+    
     # 扫描 commands 目录下的所有子命令
     commands_dir = os.path.join(script_dir, "commands")
     py_files = sorted(glob.glob(os.path.join(commands_dir, "*.py")))
@@ -70,6 +71,9 @@ def create_memocli():
             else:
                 stdout_str = stdout # string in py2
                 
+            group_name = "未分类"
+            cmd_lines = []
+            
             if proc.returncode == 0:
                 desc = "无说明"
                 example = ""
@@ -77,29 +81,57 @@ def create_memocli():
                 for line in stdout_str.splitlines():
                     if line.startswith("Description:"):
                         desc = line.replace("Description:", "").strip()
+                    elif line.startswith("Group:"):
+                        group_name = line.replace("Group:", "").strip()
                     elif line.startswith("Example:"):
                         example = line.replace("Example:", "").strip()
                     elif line.startswith("Enum (") or line.strip().startswith("- "):
                         enum_info.append(line)
                 
                 # 转义描述和示例中的双引号，防止破坏 Bash 脚本语法
-                safe_desc = desc.replace('"', '\"')
-                subcommands_info.append('    echo "  %-20s - %s"' % (display_name, safe_desc))
+                safe_desc = desc.replace('"', '\\"')
+                cmd_lines.append('    echo "  %-20s - %s"' % (display_name, safe_desc))
                 
                 if example:
-                    safe_example = example.replace('"', '\"')
-                    subcommands_info.append('    echo "    Example: %s"' % safe_example)
+                    safe_example = example.replace('"', '\\"')
+                    cmd_lines.append('    echo "    Example: %s"' % safe_example)
                 
                 if enum_info:
                     for enum_line in enum_info:
-                        safe_enum = enum_line.replace('"', '\"')
-                        subcommands_info.append('    echo "    %s"' % safe_enum)
+                        safe_enum = enum_line.replace('"', '\\"')
+                        cmd_lines.append('    echo "    %s"' % safe_enum)
                 
-                subcommands_info.append('    echo ""')
+                cmd_lines.append('    echo ""')
             else:
-                subcommands_info.append('    echo "  %-20s - (无法获取描述)"' % display_name)
+                cmd_lines.append('    echo "  %-20s - (无法获取描述)"' % display_name)
+                
+            if group_name not in groups:
+                groups[group_name] = []
+            groups[group_name].extend(cmd_lines)
+            
         except Exception as e:
-            subcommands_info.append('    echo "  %-20s - (加载失败: %s)"' % (name, str(e)))
+            if "加载失败" not in groups:
+                groups["加载失败"] = []
+            groups["加载失败"].append('    echo "  %-20s - (加载失败: %s)"' % (name, str(e)))
+
+    group_order = [
+        "核心探索 (Core Exploration)",
+        "知识写入 (Knowledge Writing)",
+        "检索与加载 (Search & Loading)",
+        "结构化编辑 (Structured Editing)",
+        "系统与维护 (System & Maintenance)"
+    ]
+    
+    subcommands_info = []
+    for g_name in group_order:
+        if g_name in groups and groups[g_name]:
+            subcommands_info.append('    echo "【%s】"' % g_name)
+            subcommands_info.extend(groups[g_name])
+            
+    for g_name, lines in groups.items():
+        if g_name not in group_order and lines:
+            subcommands_info.append('    echo "【%s】"' % g_name)
+            subcommands_info.extend(lines)
 
     subcommands_list_bash = "\n".join(subcommands_info)
     subcommands_joined = ",".join(valid_subcommands)

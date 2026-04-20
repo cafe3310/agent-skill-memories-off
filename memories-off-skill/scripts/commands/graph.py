@@ -90,6 +90,7 @@ class GraphScript(ScriptBase):
         super().__init__(
             action_name="graph",
             description="生成并开启 3D 知识图谱展示 (基于引力场模型)。",
+            group_name="系统与维护 (System & Maintenance)",
             example="memocli graph --path ."
         )
 

@@ -9,6 +9,7 @@ class CreateEntityScript(ScriptBase):
         super().__init__(
             action_name="create_entity",
             description="在知识库中创建一个新的实体文件，可以一并添加多组复杂的双向关系。",
+            group_name="知识写入 (Knowledge Writing)",
             example='memocli create-entity --name "实体名称" --type "类型" --add-rel-out "关系谓词:目标1,目标2" --reason "审计理由"'
         )
         self.parser.add_argument("-n", "--name", help="实体名称。")

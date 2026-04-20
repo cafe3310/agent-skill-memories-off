@@ -9,6 +9,7 @@ class InitScript(ScriptBase):
         super().__init__(
             action_name="init",
             description="在指定目录下初始化一个新的 Memories-Off 知识库（meta.md + entities/）。",
+            group_name="系统与维护 (System & Maintenance)",
             example="memocli init --path ./my_kb --name \"我的知识库\""
         )
         self.parser.add_argument("-n", "--name", required=True, help="知识库显示的名称。")

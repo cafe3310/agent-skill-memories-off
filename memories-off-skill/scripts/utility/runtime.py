@@ -36,10 +36,11 @@ class ScriptBase:
     """
     Agent Skill 脚本基类，提供模型优先的统一输出格式。
     """
-    def __init__(self, action_name: str, description: str, example: str = "", enum_details: Dict[str, Dict[str, str]] = None):
+    def __init__(self, action_name: str, description: str, example: str = "", group_name: str = "未分类", enum_details: Dict[str, Dict[str, str]] = None):
         self.action_name = action_name
         self.description = description
         self.example = example
+        self.group_name = group_name
         self.enum_details = enum_details or {}
         self.is_memo_cli = "--memo-cli-call" in sys.argv
         self.result_content: List[str] = []
@@ -52,6 +53,7 @@ class ScriptBase:
         """处理 --memo-cli-info 协议"""
         if "--memo-cli-info" in sys.argv:
             print(f"Description: {self.description}")
+            print(f"Group: {self.group_name}")
             if self.example:
                 print(f"Example: {self.example}")
             if self.enum_details:

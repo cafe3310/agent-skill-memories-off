@@ -7,8 +7,9 @@ from utility.schema_define import MetadataParser, UpdateBlockManager
 class AppendUpdateScript(ScriptBase):
     def __init__(self):
         super().__init__(
-            action_name="append-update",
+            action_name="append_update",
             description="向已有实体追加更新块（Buffer-Update 模式），可以一并添加多组复杂的双向关系关联。",
+            group_name="知识写入 (Knowledge Writing)",
             example='memocli append-update --entity "实体名称" --content "在此输入追加内容" --add-rel-out "关系谓词:目标1" --reason "理由"'
         )
         self.parser.add_argument("-e", "--entity", required=True, help="实体名称。")

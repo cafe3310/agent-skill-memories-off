@@ -11,6 +11,7 @@ class MergeEntitiesScript(ScriptBase):
         super().__init__(
             action_name="merge_entities",
             description="将多个源实体的内容和关系合并到目标实体，并同步重定向全库引用。",
+            group_name="结构化编辑 (Structured Editing)",
             example="memocli merge-entities -s \"A,B\" -t \"C\" -r \"合并重复实体\""
         )
         self.parser.add_argument("-s", "--sources", required=True, help="源实体名称列表，逗号分隔。")

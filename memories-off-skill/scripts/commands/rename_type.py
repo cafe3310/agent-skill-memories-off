@@ -11,6 +11,7 @@ class RenameTypeScript(ScriptBase):
         super().__init__(
             action_name="rename_type",
             description="全库范围内重命名特定的实体类型并同步文件、meta.md。",
+            group_name="结构化编辑 (Structured Editing)",
             example="memocli rename-type --path . --old 旧类型 --new 新类型 --reason \"规范化\""
         )
         self.parser.add_argument("--old", required=True, help="旧类型名称。")

@@ -9,9 +9,10 @@ from datetime import datetime
 class RenameScript(ScriptBase):
     def __init__(self):
         super().__init__(
-            action_name="rename",
+            action_name="rename_entity",
             description="重命名实体文件并自动同步全库范围内的 WikiLinks 引用及元数据关系。",
-            example="memocli rename --path . --old \"旧实体\" --new \"新实体\" -r \"修正命名\""
+            group_name="结构化编辑 (Structured Editing)",
+            example="memocli rename-entity --path . --old \"旧实体\" --new \"新实体\" -r \"修正命名\""
         )
         self.parser.add_argument("--old", required=True, help="原实体名称（不含 .md）。")
         self.parser.add_argument("--new", required=True, help="新实体名称（不含 .md）。")

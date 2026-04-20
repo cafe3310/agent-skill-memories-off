@@ -10,6 +10,7 @@ class StatsScript(ScriptBase):
         super().__init__(
             action_name="stats",
             description="获取 Memories-Off 知识库的全局资产统计报告。",
+            group_name="系统与维护 (System & Maintenance)",
             example="memocli stats --path ."
         )
         self.parser.add_argument("-c", "--commits", type=int, default=5, help="显示最近的 Git 提交记录数量 (默认: 5)。")

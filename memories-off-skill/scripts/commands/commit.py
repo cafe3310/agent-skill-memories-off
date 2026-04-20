@@ -8,6 +8,7 @@ class CommitScript(ScriptBase):
         super().__init__(
             action_name="commit",
             description="知识库变更的标准化 Git 提交工具（Audit Log）。",
+            group_name="系统与维护 (System & Maintenance)",
             example='memocli commit --path . --reason "在此描述您的变更"'
         )
         # 移除 --action 和 --target，仅保留基类中的 --reason (作为 commit message)

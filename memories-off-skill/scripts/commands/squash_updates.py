@@ -9,9 +9,10 @@ from utility.schema_define import MetadataParser, UpdateBlockManager
 class ConsolidateUpdatesScript(ScriptBase):
     def __init__(self):
         super().__init__(
-            action_name="consolidate-updates",
+            action_name="squash_updates",
             description="[高影响/严禁自动执行] 将实体末尾的缓冲更新块合并到正式章节中。除非用户明确指令，Agent 不得擅自运行此命令。",
-            example='memocli consolidate-updates --path . --reason "定期整理任务内容"'
+            group_name="系统与维护 (System & Maintenance)",
+            example='memocli squash-updates --path . --reason "定期整理任务内容"'
         )
 
     def consolidate_entity(self, file_path: Path):

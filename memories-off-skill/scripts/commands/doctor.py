@@ -12,6 +12,7 @@ class DoctorScript(ScriptBase):
         super().__init__(
             action_name="doctor",
             description="诊断并修复知识库中的常见问题（规范化、孤立引用等）。若不加 --fix 参数，则仅列出问题（Dry-run）。",
+            group_name="系统与维护 (System & Maintenance)",
             example='memocli doctor --rule-normalize-name --fix --reason "标准化命名"'
         )
         self.parser.add_argument("--rule-normalize-name", action="store_true", help="检查并修复实体文件名、WikiLinks和关系目标的标准化问题。")
