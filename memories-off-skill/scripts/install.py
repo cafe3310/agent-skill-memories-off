@@ -19,19 +19,19 @@ def create_memocli():
     
     # 0. Check python version to find a suitable python3 for subcommands
     python_cmd = sys.executable
-    if sys.version_info < (3, 7):
-        print("[INFO] 当前运行环境低于 Python 3.7，尝试寻找系统中的 Python 3 环境以解析子命令...")
+    if sys.version_info < (3, 8):
+        print("[INFO] 当前运行环境低于 Python 3.8，尝试寻找系统中的 Python 3 环境以解析子命令...")
         found_python3 = None
-        for cmd in ["python3", "python3.11", "python3.10", "python3.9", "python3.8", "python3.7", "python"]:
+        for cmd in ["python3", "python3.11", "python3.10", "python3.9", "python3.8", "python"]:
             try:
                 with open(os.devnull, 'w') as devnull:
-                    if subprocess.call([cmd, "-c", "import sys; sys.exit(0 if sys.version_info >= (3,7) else 1)"], stdout=devnull, stderr=devnull) == 0:
+                    if subprocess.call([cmd, "-c", "import sys; sys.exit(0 if sys.version_info >= (3,8) else 1)"], stdout=devnull, stderr=devnull) == 0:
                         found_python3 = cmd
                         break
             except Exception:
                 pass
         if not found_python3:
-            print("[WARN] 未能找到 Python 3.7+，子命令解析可能会失败。生成的 memocli 会在运行时重试。")
+            print("[WARN] 未能找到 Python 3.8+，子命令解析可能会失败。生成的 memocli 会在运行时重试。")
         else:
             print("[INFO] 找到 Python 3: " + found_python3)
             python_cmd = found_python3
@@ -130,9 +130,9 @@ export PYTHONPATH="$SCRIPTS_DIR:$PYTHONPATH"
 
 # --- 0. 环境检查: 寻找 Python 3 ---
 PYTHON_CMD=""
-for cmd in python3 python3.11 python3.10 python3.9 python3.8 python3.7 python; do
+for cmd in python3 python3.11 python3.10 python3.9 python3.8 python; do
     if command -v "$cmd" >/dev/null 2>&1; then
-        VER=$("$cmd" -c 'import sys; print(1 if sys.version_info >= (3,7) else 0)' 2>/dev/null)
+        VER=$("$cmd" -c 'import sys; print(1 if sys.version_info >= (3,8) else 0)' 2>/dev/null)
         if [ "$VER" = "1" ]; then
             PYTHON_CMD="$cmd"
             break
@@ -141,7 +141,7 @@ for cmd in python3 python3.11 python3.10 python3.9 python3.8 python3.7 python; d
 done
 
 if [ -z "$PYTHON_CMD" ]; then
-    echo "[错误] memocli 需要 Python 3.7+ 环境。未找到有效的 python 执行路径。"
+    echo "[错误] memocli 需要 Python 3.8+ 环境。未找到有效的 python 执行路径。"
     exit 1
 fi
 
