@@ -6,12 +6,7 @@
 
 ### 第二部分：协作流程和规范
 
-我们采用 `doc-todo-log-loop` Skill 定义的人机协作开发工作流。
-
-- **记录规范**:
-    - **TODO**: 放在 `docs/TODO.md`。
-    - **开发日志**: 放在 `docs/logs/` 目录，命名格式为 `YYYY-MM-DD-HH-mm-开发日志-{标题}.md`。
-    - **需求/设计**: 放在 `docs/` 目录，命名格式为 `YYYY-MM-DD-HH-mm-{类别}-{简述}.md`。
+我们采用 `doc-todo-log-loop` Skill 定义的人机协作开发工作流。文档统一放在 `docs/` 目录下。TODO 也放在 `docs/TODO.md` 中。
 
 ---
 
