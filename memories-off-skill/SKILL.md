@@ -57,10 +57,13 @@ memocli <subcommand> --help
 
 ---
 
-## 4. 术语定义 (Glossary)
+## 4. 核心概念与术语 (Core Concepts & Glossary)
 
-为了与用户和其他系统保持语义对齐，请严格遵守本项目定义的通用语言。
-详细定义请参阅：[**项目术语表 (Glossary)**](./references/glossary.md)。
+为了与用户和其他系统保持语义对齐，并理解你所操作的数据模型（如实体结构、元数据关系、WikiLinks 等），请务必参阅以下文档：
+
+1. [**核心概念与数据模型 (Core Concepts)**](./references/core_concepts.md): 解释了你在使用 `memocli` 时必须理解的 H1/H2 规则、别名机制、双向链接原理及缓冲编辑机制。
+2. [**批量操作与 Token 节约指南 (Batch Operations)**](./references/batch_operations.md): 总结了如何通过合并指令、合理使用参数来大幅减少 Token 消耗与执行时间的最佳实践。
+3. [**项目术语表 (Glossary)**](./references/glossary.md): 提供关键名词和动词的精确定义。
 
 ---
 
