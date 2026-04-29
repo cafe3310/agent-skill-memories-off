@@ -1,22 +1,47 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Memories-Off 3D 知识图谱</title>
+    <title>Memories-Off 3D Graph</title>
     <style>
-        body { margin: 0; background-color: #000; overflow: hidden; font-family: sans-serif; }
+        body { margin: 0; background-color: #050505; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
         #graph-container { width: 100vw; height: 100vh; }
-        #info-panel {
-            position: absolute; top: 10px; left: 10px;
-            color: #ccc; background: rgba(0,0,0,0.8);
-            padding: 15px; border-radius: 8px;
-            font-size: 13px; border: 1px solid #444;
-            z-index: 100; line-height: 1.6;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        
+        .panel {
+            position: absolute;
+            color: #eee; background: rgba(20, 20, 20, 0.8);
+            padding: 16px; border-radius: 12px;
+            font-size: 13px; border: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 100; line-height: 1.5;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            backdrop-filter: blur(12px);
+            width: 240px;
         }
-        .control-group { margin-top: 10px; border-top: 1px solid #333; padding-top: 10px; }
-        label { cursor: pointer; display: flex; align-items: center; gap: 8px; }
-        input[type="checkbox"] { cursor: pointer; }
+        
+        #search-panel { top: 20px; left: 20px; }
+        #control-panel { top: 20px; right: 20px; }
+
+        .panel-title { font-size: 15px; font-weight: 600; margin-bottom: 12px; color: #fff; display: flex; align-items: center; gap: 8px; }
+        .panel-title::before { content: ""; width: 3px; height: 14px; background: #007aff; border-radius: 2px; }
+        
+        .search-box {
+            width: 100%; padding: 10px 12px; background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.2); border-radius: 8px;
+            color: #fff; font-size: 13px; outline: none; box-sizing: border-box;
+            transition: all 0.2s;
+        }
+        .search-box:focus { border-color: #007aff; background: rgba(255,255,255,0.1); }
+        
+        .control-group { margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px; }
+        label { cursor: pointer; display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+        input[type="checkbox"] { cursor: pointer; accent-color: #007aff; width: 16px; height: 16px; }
+        
+        .legend { margin-top: 10px; font-size: 11px; color: #aaa; }
+        .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+        .legend-color { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+        
+        .hint { margin-top: 15px; color: #777; font-size: 11px; font-style: italic; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px; }
+        kbd { background: #333; padding: 2px 4px; border-radius: 3px; font-family: monospace; color: #fff; }
     </style>
     <script>var exports = {};</script>
     <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
@@ -24,132 +49,226 @@
 </head>
 <body>
     <div id="graph-container"></div>
-    <div id="info-panel">
-        <strong>Memories-Off 3D Gravity KG</strong><br/>
-        左键: 旋转 | 右键: 平移 | 滚轮: 缩放<br/>
-        点击节点: 聚焦中心
+    
+    <div id="search-panel" class="panel">
+        <div class="panel-title">Search Explorer</div>
+        <input type="text" id="search-input" class="search-box" placeholder="Name or Type..." autocomplete="off">
+        <div class="legend" style="margin-top: 12px;">Press <kbd>Enter</kbd> to focus match</div>
+    </div>
+
+    <div id="control-panel" class="panel">
+        <div class="panel-title">Controls</div>
         <div class="control-group">
-            <label><input type="checkbox" id="show-labels" checked> 开启节点名称显示</label>
+            <label><input type="checkbox" id="show-labels" checked> Labels</label>
+        </div>
+        <div id="type-legend" class="legend"></div>
+        <div class="hint">
+            <b>Left-click</b>: Rotate<br/>
+            <b>Right-click</b>: Pan<br/>
+            <b>Scroll</b>: Zoom<br/>
+            <b>Hover</b>: Highlight paths
         </div>
     </div>
+
     <script>
         const gData = {DATA_JSON};
-        const state = { showLabels: true, labelVisibilityDist: 250 };
+        
+        // Relationship preprocessing
+        const highlightNodes = new Set();
+        const highlightLinks = new Set();
+        let hoverNode = null;
+
+        gData.links.forEach(link => {
+            const a = gData.nodes.find(n => n.id === (typeof link.source === 'object' ? link.source.id : link.source));
+            const b = gData.nodes.find(n => n.id === (typeof link.target === 'object' ? link.target.id : link.target));
+            if (!a || !b) return;
+            a.neighbors = a.neighbors || []; b.neighbors = b.neighbors || [];
+            a.neighbors.push(b); b.neighbors.push(a);
+            a.links = a.links || []; b.links = b.links || [];
+            a.links.push(link); b.links.push(link);
+        });
+
+        const state = { showLabels: true, labelDist: 350 };
         const elem = document.getElementById('graph-container');
+
         const Graph = ForceGraph3D()(elem)
             .graphData(gData)
-
             .nodeLabel(node => `${node.type}: ${node.display_name}`)
-            .nodeAutoColorBy('type')
-            .nodeVal(node => node.is_alias ? 2 : Math.min(Math.max(Math.sqrt(node.file_size || 500) / 5, 5), 20))
-            .nodeResolution(10)
 
-            .linkWidth(0)
-            .linkDirectionalArrowLength(3.5)
+            .nodeAutoColorBy('type')
+            .nodeVal(node => {
+                const baseVal = node.is_alias ? 2 : Math.min(Math.max(Math.sqrt(node.file_size || 500) / 4, 4), 16);
+                return (hoverNode === node) ? baseVal * 1.5 : baseVal;
+            })
+            .nodeResolution(10)
+            
+            // Link styling: use 2D Lines with focusing logic
+            .linkWidth(link => {
+                if (highlightLinks.size === 0) return 0;
+                return highlightLinks.has(link) ? 3 : 0;
+            })
+            .linkColor(link => {
+                if (highlightLinks.size === 0) return '#ffffff';
+                return highlightLinks.has(link) ? '#ffea00' : '#ffffff';
+            })
+            .linkDirectionalArrowLength(3)
             .linkDirectionalArrowRelPos(1)
             .linkDirectionalArrowResolution(3)
-            .linkCurvature(0.1)
-
+            .linkCurvature(0.12)
+            
+            .onNodeHover(node => {
+                if (hoverNode === node) return;
+                highlightNodes.clear();
+                highlightLinks.clear();
+                if (node) {
+                    highlightNodes.add(node);
+                    (node.neighbors || []).forEach(n => highlightNodes.add(n));
+                    (node.links || []).forEach(l => highlightLinks.add(l));
+                }
+                hoverNode = node || null;
+                updateVisuals();
+            })
             .onNodeClick(node => {
                 const distance = 80;
                 const distRatio = 1 + distance/Math.hypot(node.x, node.y, node.z);
                 Graph.cameraPosition({ x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio }, node, 2000);
-            })
+            });
 
-            .nodeThreeObject(node => {
-                const sprite = new SpriteText(node.display_name);
-                sprite.color = 'white'; 
-                sprite.textHeight = 4;
-                
-                // 确保标签始终在最前面显示，不被球体遮挡
+        function SpriteText(text, color = 'white') {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const fontSize = 52; 
+            ctx.font = `bold ${fontSize}px sans-serif`;
+            const textWidth = ctx.measureText(text).width;
+            
+            const hPadding = 60; const vPadding = 20;
+            canvas.width = textWidth + hPadding * 2; 
+            canvas.height = fontSize + vPadding * 2;
+            const radius = canvas.height / 2;
+            
+            ctx.fillStyle = 'rgba(20,20,20,0.85)';
+            if (ctx.roundRect) ctx.roundRect(0, 0, canvas.width, canvas.height, radius); else ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fill();
+            
+            ctx.lineWidth = 3.5;
+            ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+            ctx.stroke();
+            
+            ctx.font = `bold ${fontSize}px sans-serif`; 
+            ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
+            const sprite = new THREE.Sprite(spriteMaterial);
+            const aspect = canvas.width / canvas.height;
+            sprite.scale.set(aspect * 5.5, 5.5, 1); 
+            sprite.center.set(0.5, 0); 
+            return sprite;
+        }
+
+        Graph.nodeThreeObject(node => {
+                const sprite = SpriteText(node.display_name, 'white');
                 sprite.material.depthTest = false;
                 sprite.renderOrder = 999;
-                
                 node.__labelSprite = sprite; 
                 return sprite;
             })
             .nodeThreeObjectExtend(true);
 
-        function SpriteText(text) {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            const fontSize = 48; 
-            ctx.font = `${fontSize}px sans-serif`;
-            const textWidth = ctx.measureText(text).width;
+        function updateVisuals() {
+            // Trigger link refresh
+            Graph.linkColor(Graph.linkColor()).linkWidth(Graph.linkWidth());
             
-            canvas.width = textWidth + 24; 
-            canvas.height = fontSize + 24;
-            
-            // 绘制半透明背景以增强可读性
-            ctx.font = `${fontSize}px sans-serif`; 
-            ctx.fillStyle = 'rgba(0,0,0,0.6)';
-            ctx.roundRect(0, 0, canvas.width, canvas.height, 8);
-            ctx.fill();
-            
-            ctx.fillStyle = 'white'; 
-            ctx.textAlign = 'center'; 
-            ctx.textBaseline = 'middle';
-            ctx.fillText(text, canvas.width / 2, canvas.height / 2);
-            
-            const texture = new THREE.CanvasTexture(canvas);
-            const spriteMaterial = new THREE.SpriteMaterial({ 
-                map: texture, 
-                transparent: true,
-                sizeAttenuation: true
+            // Gentle label dimming instead of entity darkening
+            gData.nodes.forEach(n => {
+                if (n.__labelSprite) {
+                    const isRelevant = highlightNodes.size === 0 || highlightNodes.has(n);
+                    n.__labelSprite.material.opacity = isRelevant ? 1 : 0.4;
+                    // Border color feedback
+                    n.__labelSprite.material.color.set(isRelevant ? '#ffffff' : '#aaaaaa');
+                }
             });
-            const sprite = new THREE.Sprite(spriteMaterial);
-            const aspect = canvas.width / canvas.height;
-            sprite.scale.set(aspect * 4, 4, 1); 
-            
-            // 将锚点设为底部中心，使其像旗帜一样立在节点上方
-            sprite.center.set(0.5, 0); 
-            return sprite;
         }
 
-        function updateLabels() {
+        function animateLabels() {
             const camPos = Graph.cameraPosition();
-            const nodes = Graph.graphData().nodes;
-            const nodeRelSize = 4; // 3d-force-graph 默认值
-
-            nodes.forEach(n => {
+            const nodeRelSize = 3;
+            gData.nodes.forEach(n => {
                 if (n.__labelSprite) {
                     const dist = Math.hypot(n.x - camPos.x, n.y - camPos.y, n.z - camPos.z);
-                    n.__labelSprite.visible = state.showLabels && dist < state.labelVisibilityDist;
-                    
+                    n.__labelSprite.visible = state.showLabels && dist < state.labelDist;
                     if (n.__labelSprite.visible) {
-                        // 动态计算球体半径：radius = val^(1/3) * nodeRelSize
-                        const val = n.is_alias ? 2 : Math.min(Math.max(Math.sqrt(n.file_size || 500) / 5, 5), 20);
-                        const radius = Math.pow(val, 1/3) * nodeRelSize;
-                        // 将标签放置在球体顶部并留出少量间隙 (radius + 1)
-                        n.__labelSprite.position.y = radius + 1;
+                        const baseVal = n.is_alias ? 2 : Math.min(Math.max(Math.sqrt(n.file_size || 500) / 4, 6), 25);
+                        const currentVal = (hoverNode === n) ? baseVal * 1.5 : baseVal;
+                        const radius = Math.pow(currentVal, 1/3) * nodeRelSize;
+                        n.__labelSprite.position.y = radius + 2;
+                        // Animate scale if hovered
+                        const targetScale = (hoverNode === n) ? 7 : 5.5;
+                        const aspect = n.__labelSprite.scale.x / n.__labelSprite.scale.y;
+                        n.__labelSprite.scale.y += (targetScale - n.__labelSprite.scale.y) * 0.1;
+                        n.__labelSprite.scale.x = n.__labelSprite.scale.y * aspect;
                     }
                 }
             });
-            requestAnimationFrame(updateLabels);
+            requestAnimationFrame(animateLabels);
         }
-        updateLabels();
+        animateLabels();
 
-        const uiToggle = document.getElementById('show-labels');
-        uiToggle.addEventListener('change', (e) => { state.showLabels = e.target.checked; });
+        // UI Event Listeners
+        document.getElementById('show-labels').addEventListener('change', (e) => state.showLabels = e.target.checked);
 
+        const searchInput = document.getElementById('search-input');
+        const handleSearch = (e) => {
+            const term = searchInput.value.toLowerCase();
+            highlightNodes.clear(); highlightLinks.clear();
+            if (term) {
+                const matches = gData.nodes.filter(n => n.display_name.toLowerCase().includes(term) || n.type.toLowerCase().includes(term));
+                matches.forEach(n => highlightNodes.add(n));
+                if (e && e.key === 'Enter' && matches.length > 0) {
+                    const best = matches[0];
+                    const dist = 150;
+                    const ratio = 1 + dist/Math.hypot(best.x, best.y, best.z);
+                    Graph.cameraPosition({ x: best.x * ratio, y: best.y * ratio, z: best.z * ratio }, best, 1200);
+                }
+            }
+            updateVisuals();
+        };
+        searchInput.addEventListener('input', () => handleSearch());
+        searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleSearch(e); });
+
+        // Physics Forces
         Graph.d3Force('type-gravity', (alpha) => {
-            const nodes = Graph.graphData().nodes;
-            const totals = {};
-            nodes.forEach(n => {
+            const centers = {};
+            gData.nodes.forEach(n => {
                 if (n.is_alias) return;
-                if (!totals[n.type]) totals[n.type] = { x: 0, y: 0, z: 0, count: 0 };
-                totals[n.type].x += n.x; totals[n.type].y += n.y; totals[n.type].z += n.z; totals[n.type].count++;
+                centers[n.type] = centers[n.type] || { x: 0, y: 0, z: 0, count: 0 };
+                centers[n.type].x += n.x; centers[n.type].y += n.y; centers[n.type].z += n.z; centers[n.type].count++;
             });
-            nodes.forEach(n => {
-                const t = totals[n.type];
-                if (t) {
-                    n.vx += (t.x / t.count - n.x) * alpha * 0.08;
-                    n.vy += (t.y / t.count - n.y) * alpha * 0.08;
-                    n.vz += (t.z / t.count - n.z) * alpha * 0.08;
+            gData.nodes.forEach(n => {
+                const c = centers[n.type];
+                if (c) {
+                    n.vx += (c.x / c.count - n.x) * alpha * 0.07;
+                    n.vy += (c.y / c.count - n.y) * alpha * 0.07;
+                    n.vz += (c.z / c.count - n.z) * alpha * 0.07;
                 }
             });
         });
-        Graph.d3Force('link').strength(link => link.is_alias_link ? 1.0 : 0.2).distance(link => link.is_alias_link ? 10 : 60);
+        Graph.d3Force('link').strength(l => l.is_alias_link ? 1.2 : 0.35).distance(l => l.is_alias_link ? 8 : 80);
+
+        // Legend Generation
+        setTimeout(() => {
+            const types = [...new Set(gData.nodes.map(n => n.type))];
+            const legend = document.getElementById('type-legend');
+            types.forEach(type => {
+                const node = gData.nodes.find(n => n.type === type);
+                const color = Graph.nodeColor()(node);
+                const item = document.createElement('div');
+                item.className = 'legend-item';
+                item.innerHTML = `<div class="legend-color" style="background:${color}"></div><span>${type}</span>`;
+                legend.appendChild(item);
+            });
+        }, 600);
     </script>
 </body>
 </html>
