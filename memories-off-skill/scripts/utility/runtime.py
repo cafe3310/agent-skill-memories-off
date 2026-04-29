@@ -138,12 +138,30 @@ class ScriptBase:
 
     def setup(self):
         """解析参数并初始化上下文"""
+        self._handle_global_config()
         self.args = self.parser.parse_args()
         root_path = Path(self.args.path).resolve()
         if not root_path.exists():
             self.finalize(success=False, error_msg=f"路径不存在: {root_path}")
             sys.exit(1)
         self.ctx = LibraryContext(root_path, root_path.name)
+
+    def _handle_global_config(self):
+        """加载全局配置并处理通用逻辑（如等待时长）"""
+        config_path = Path.home() / ".config" / "memories-off" / "config.yaml"
+        if config_path.exists():
+            try:
+                import yaml
+                import time
+                with open(config_path, "r", encoding="utf-8") as f:
+                    config = yaml.safe_load(f)
+                if config and "wait_second" in config:
+                    wait_sec = float(config["wait_second"])
+                    if wait_sec > 0:
+                        # 静默等待，避免干扰 XML 输出
+                        time.sleep(wait_sec)
+            except Exception:
+                pass
 
     def run(self):
         """子类需实现此方法"""

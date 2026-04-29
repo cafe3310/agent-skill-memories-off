@@ -10,7 +10,7 @@ from utility.runtime import ScriptBase
 from utility.schema_define import LibraryContext, MetadataParser
 
 # --- HTML 渲染模板已从 assets 目录加载 ---
-TEMPLATE_PATH = Path(__file__).parent.parent / "assets" / "graph_template.html"
+TEMPLATE_PATH = Path(__file__).parent.parent.parent / "assets" / "graph_template.html"
 try:
     with open(TEMPLATE_PATH, "r", encoding="utf-8") as f:
         HTML_TEMPLATE = f.read()

@@ -58,43 +58,79 @@
 
             .nodeThreeObject(node => {
                 const sprite = new SpriteText(node.display_name);
-                sprite.color = 'white'; sprite.textHeight = 4;
-                node.__labelSprite = sprite; return sprite;
+                sprite.color = 'white'; 
+                sprite.textHeight = 4;
+                
+                // 确保标签始终在最前面显示，不被球体遮挡
+                sprite.material.depthTest = false;
+                sprite.renderOrder = 999;
+                
+                node.__labelSprite = sprite; 
+                return sprite;
             })
             .nodeThreeObjectExtend(true);
 
         function SpriteText(text) {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
-            const fontSize = 48; ctx.font = `${fontSize}px sans-serif`;
+            const fontSize = 48; 
+            ctx.font = `${fontSize}px sans-serif`;
             const textWidth = ctx.measureText(text).width;
-            canvas.width = textWidth + 20; canvas.height = fontSize + 20;
-            ctx.font = `${fontSize}px sans-serif`; ctx.fillStyle = 'rgba(0,0,0,0.5)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = 'white'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            
+            canvas.width = textWidth + 24; 
+            canvas.height = fontSize + 24;
+            
+            // 绘制半透明背景以增强可读性
+            ctx.font = `${fontSize}px sans-serif`; 
+            ctx.fillStyle = 'rgba(0,0,0,0.6)';
+            ctx.roundRect(0, 0, canvas.width, canvas.height, 8);
+            ctx.fill();
+            
+            ctx.fillStyle = 'white'; 
+            ctx.textAlign = 'center'; 
+            ctx.textBaseline = 'middle';
             ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+            
             const texture = new THREE.CanvasTexture(canvas);
-            const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
+            const spriteMaterial = new THREE.SpriteMaterial({ 
+                map: texture, 
+                transparent: true,
+                sizeAttenuation: true
+            });
             const sprite = new THREE.Sprite(spriteMaterial);
             const aspect = canvas.width / canvas.height;
-            sprite.scale.set(aspect * 4, 4, 1); sprite.position.y = 6;
+            sprite.scale.set(aspect * 4, 4, 1); 
+            
+            // 将锚点设为底部中心，使其像旗帜一样立在节点上方
+            sprite.center.set(0.5, 0); 
             return sprite;
         }
 
-        const uiToggle = document.getElementById('show-labels');
-        uiToggle.addEventListener('change', (e) => { state.showLabels = e.target.checked; });
-
         function updateLabels() {
             const camPos = Graph.cameraPosition();
-            Graph.graphData().nodes.forEach(n => {
+            const nodes = Graph.graphData().nodes;
+            const nodeRelSize = 4; // 3d-force-graph 默认值
+
+            nodes.forEach(n => {
                 if (n.__labelSprite) {
                     const dist = Math.hypot(n.x - camPos.x, n.y - camPos.y, n.z - camPos.z);
                     n.__labelSprite.visible = state.showLabels && dist < state.labelVisibilityDist;
+                    
+                    if (n.__labelSprite.visible) {
+                        // 动态计算球体半径：radius = val^(1/3) * nodeRelSize
+                        const val = n.is_alias ? 2 : Math.min(Math.max(Math.sqrt(n.file_size || 500) / 5, 5), 20);
+                        const radius = Math.pow(val, 1/3) * nodeRelSize;
+                        // 将标签放置在球体顶部并留出少量间隙 (radius + 1)
+                        n.__labelSprite.position.y = radius + 1;
+                    }
                 }
             });
             requestAnimationFrame(updateLabels);
         }
         updateLabels();
+
+        const uiToggle = document.getElementById('show-labels');
+        uiToggle.addEventListener('change', (e) => { state.showLabels = e.target.checked; });
 
         Graph.d3Force('type-gravity', (alpha) => {
             const nodes = Graph.graphData().nodes;
