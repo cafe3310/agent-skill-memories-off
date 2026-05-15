@@ -24,6 +24,12 @@
 ### 1.4 关系管理 (Relations)
 - [ ] 1.4.1 实现实体间关系的创建与删除逻辑
 
+### 1.5 外部文档仓库能力 (External Document Repository)
+- [ ] 1.5.1 扩展 `MetadataParser` 或 `LibraryContext` 以支持 `meta.md` 中的外部仓库配置解析
+- [ ] 1.5.2 实现 `find-doc-by-name` 工具 (模糊匹配、过滤、路径解析)
+- [ ] 1.5.3 实现 `read-doc-by-name` 工具 (精确匹配读取)
+- [ ] 1.5.4 运行 `install.py` 重新注册子命令并验证帮助信息显示
+
 ---
 
 ## 阶段 2: CLI 优化与 Token 压缩 (待办)
