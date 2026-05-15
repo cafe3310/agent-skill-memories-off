@@ -99,3 +99,24 @@ cafe3310 家两只超可爱三花猫里的姐姐。
   - `echo "## 补充内容\n- 关键点 A\n- 关键点 B" | memocli append-update --entity "五一计划" --content-stdin --reason "讨论补充"`
 - **治理**: 审计并自动修复库里的标题层级：`memocli doctor --rule-normalize-headers --fix --reason "标准化层级"`。
 - **审计**: 提交手动修改：`memocli commit --reason "更新了人物关系定义"`。
+
+### 外部文档仓库 (External Document Repository)
+
+`memories-off` 支持接入外部的只读文档库（如 Obsidian 仓库），以便在不转换实体的情况下直接检索和阅读。
+
+#### 配置接入 (`meta.md`)
+
+在 `meta.md` 的 Frontmatter 中添加以下配置：
+
+```yaml
+---
+external document repo: ../../my-obsidian-vault  # 外部仓库路径
+external document extensions: .md, .txt        # 包含的扩展名
+external document exclude dirs: .git, .trash     # 排除的子目录
+---
+```
+
+#### 外部仓库指令
+
+- **检索文档**: `memocli find-doc-by-name "关键字"`
+- **读取文档**: `memocli read-doc-by-name "文件名.md"` (重名时可使用相对路径消歧义)

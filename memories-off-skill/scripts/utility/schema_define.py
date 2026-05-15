@@ -45,6 +45,15 @@ class UpdateBlockManager:
         return UpdateBlockManager.BLOCK_PATTERN.sub("", content).strip()
 
 @dataclass
+class ExternalRepoConfig:
+    """
+    外部文档仓库 (External Document Repository) 的配置。
+    """
+    root_path: Optional[Path] = None
+    extensions: List[str] = field(default_factory=lambda: [".md", ".txt"])
+    exclude_dirs: List[str] = field(default_factory=lambda: [".git", "attachments"])
+
+@dataclass
 class LibraryContext:
     """
     表示 memories-off 知识库的全局上下文。
@@ -59,6 +68,42 @@ class LibraryContext:
     @property
     def meta_path(self) -> Path:
         return self.root_path / "meta.md"
+
+    def get_external_repo_config(self) -> ExternalRepoConfig:
+        """
+        从 meta.md 中解析外部仓库配置。
+        """
+        if not self.meta_path.exists():
+            return ExternalRepoConfig()
+        
+        content = self.meta_path.read_text(encoding="utf-8")
+        metadata = MetadataParser.parse(content)
+        
+        config = ExternalRepoConfig()
+        
+        # 解析根目录
+        root_raw = metadata.get("external document repo")
+        if root_raw:
+            raw_path = Path(root_raw)
+            if raw_path.is_absolute():
+                config.root_path = raw_path
+            else:
+                # 相对路径相对于 meta.md 所在目录
+                config.root_path = (self.root_path / raw_path).resolve()
+        
+        # 解析扩展名
+        ext_raw = metadata.get("external document extensions")
+        if ext_raw:
+            config.extensions = [e.strip() for e in ext_raw.split(",") if e.strip()]
+            # 确保包含 .
+            config.extensions = [e if e.startswith(".") else f".{e}" for e in config.extensions]
+            
+        # 解析排除目录
+        ex_raw = metadata.get("external document exclude dirs")
+        if ex_raw:
+            config.exclude_dirs = [d.strip() for d in ex_raw.split(",") if d.strip()]
+            
+        return config
 
     def is_git_repo(self) -> bool:
         return (self.root_path / ".git").is_dir()
