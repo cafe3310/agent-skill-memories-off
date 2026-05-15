@@ -149,7 +149,8 @@ class ExploreScript(ScriptBase):
         # 6. CLI Help
         try:
             result = subprocess.run(["memocli", "help"], capture_output=True, text=True, check=True)
-            xml_parts.append(f"  <cli-help>{escape_text(result.stdout.strip())}</cli-help>")
+            help_content = "以下是 memocli --help 的执行结果，包含了所有子命令及其用法摘要：\n\n" + result.stdout.strip()
+            xml_parts.append(f"  <cli-help>{escape_text(help_content)}</cli-help>")
         except Exception as e:
             xml_parts.append(f'  <cli-help error="读取失败: {escape_text(str(e))}" />')
 
